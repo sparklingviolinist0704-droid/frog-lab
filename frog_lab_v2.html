@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数字生命 · 虚拟机能学实验平台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+/* ═══════════════════════════════════════
+   全局变量与重置
+═══════════════════════════════════════ */
+:root {
+  --ink:       #0a0e1a;
+  --ink2:      #111827;
+  --ink3:      #1a2438;
+  --jade:      #00c9a7;
+  --jade-dim:  #008f77;
+  --jade-glow: rgba(0,201,167,0.18);
+  --jade-soft: rgba(0,201,167,0.08);
+  --gold:      #e8c97a;
+  --gold-dim:  rgba(232,201,122,0.12);
+  --red:       #e05c5c;
+  --orange:    #f0924a;
+  --blue:      #6b9ef0;
+  --text:      #dde8f0;
+  --text2:     #7a9bb0;
+  --text3:     #4a6580;
+  --glass:     rgba(10,14,26,0.75);
+  --glass2:    rgba(17,24,39,0.85);
+  --border:    rgba(0,201,167,0.18);
+  --border2:   rgba(0,201,167,0.08);
+  --r:         12px;
+  --r2:        8px;
+  --ease:      cubic-bezier(0.4,0,0.2,1);
+  --serif:     'Noto Serif SC', serif;
+  --sans:      'Noto Sans SC', sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--ink);color:var(--text);font-family:var(--sans)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--jade-dim);border-radius:2px}
+
+/* ═══════════════════════════════════════
+   页面管理
+═══════════════════════════════════════ */
+.page{position:fixed;inset:0;opacity:0;pointer-events:none;transition:opacity 0.5s var(--ease)}
+.page.active{opacity:1;pointer-events:all}
+
+/* ═══════════════════════════════════════
+   页面一：开场
+═══════════════════════════════════════ */
+#pg-intro{background:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
+#intro-canvas{position:absolute;inset:0;pointer-events:none}
+#intro-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:40px;max-width:680px;padding:40px 24px;text-align:center}
+#intro-logo{font-family:var(--serif);font-size:12px;letter-spacing:.4em;color:var(--gold);opacity:.7;text-transform:uppercase}
+#intro-text-wrap{min-height:320px;display:flex;align-items:center;justify-content:center}
+#intro-text{font-family:var(--serif);font-size:clamp(14px,1.5vw,17px);line-height:2.4;color:var(--text);letter-spacing:.06em;text-align:center}
+.tw-char{display:inline;opacity:0;animation:charIn .4s var(--ease) forwards}
+@keyframes charIn{from{opacity:0;text-shadow:0 0 16px var(--jade)}to{opacity:1;text-shadow:none}}
+#intro-progress-wrap{width:280px;display:flex;flex-direction:column;gap:8px;align-items:center}
+#intro-progress-bar{width:100%;height:1px;background:rgba(0,201,167,.15);border-radius:1px;overflow:hidden}
+#intro-progress-fill{height:100%;width:0%;background:var(--jade);border-radius:1px;transition:width .1s linear;box-shadow:0 0 8px var(--jade)}
+#intro-progress-text{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.1em}
+#btn-enter{display:none;font-family:var(--serif);font-size:13px;letter-spacing:.35em;color:var(--jade);background:transparent;border:1px solid var(--jade);padding:14px 48px;cursor:pointer;border-radius:3px;transition:all .3s var(--ease);animation:pulseBorder 2.5s ease infinite}
+#btn-enter:hover{background:var(--jade-glow);box-shadow:0 0 30px var(--jade-glow);transform:translateY(-2px)}
+@keyframes pulseBorder{0%,100%{box-shadow:0 0 8px var(--jade-glow)}50%{box-shadow:0 0 24px rgba(0,201,167,.35),0 0 48px rgba(0,201,167,.1)}}
+
+/* ═══════════════════════════════════════
+   页面二：主界面
+═══════════════════════════════════════ */
+#pg-main{z-index:10}
+#three-canvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* 顶部导航 */
+#topnav{position:absolute;top:0;left:0;right:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(10,14,26,.7);backdrop-filter:blur(20px);border-bottom:1px solid var(--border2);z-index:20}
+#nav-logo{display:flex;align-items:center;gap:10px}
+#nav-logo-bar{width:3px;height:20px;background:var(--gold);border-radius:2px;box-shadow:0 0 8px rgba(232,201,122,.5)}
+#nav-logo-text{font-family:var(--serif);font-size:15px;color:var(--gold);letter-spacing:.12em}
+#nav-tabs{display:flex;gap:4px}
+.nav-tab{font-family:var(--sans);font-size:13px;color:var(--text2);background:transparent;border:none;padding:8px 20px;cursor:pointer;border-radius:20px;transition:all .3s var(--ease);letter-spacing:.04em}
+.nav-tab:hover{color:var(--text);background:var(--jade-soft)}
+.nav-tab.active{color:var(--jade);background:var(--jade-soft);box-shadow:0 0 16px var(--jade-glow)}
+#nav-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);letter-spacing:.08em}
+#nav-dot{width:6px;height:6px;background:var(--jade);border-radius:50%;animation:dotPulse 2s ease infinite}
+@keyframes dotPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,201,167,.4)}50%{opacity:.7;box-shadow:0 0 0 4px rgba(0,201,167,0)}}
+
+/* 右侧面板 */
+#side-panel{position:absolute;top:64px;right:0;bottom:0;width:440px;background:var(--glass2);backdrop-filter:blur(24px);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .4s var(--ease);z-index:15;display:flex;flex-direction:column;overflow:hidden}
+#side-panel.open{transform:translateX(0)}
+
+/* 面板公共 */
+.panel-body{flex:1;overflow-y:auto;padding:28px 28px 20px}
+.panel-section{margin-bottom:28px}
+.section-label{font-size:10px;color:var(--jade);letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border2)}
+
+/* 实验预习 */
+.exp-tab-row{display:flex;flex-direction:column;gap:6px;margin-bottom:20px}
+.exp-side-tab{padding:10px 16px;border:1px solid var(--border2);border-radius:var(--r2);cursor:pointer;font-size:13px;color:var(--text2);transition:all .3s var(--ease);display:flex;align-items:center;gap:10px;background:transparent}
+.exp-side-tab:hover{border-color:var(--jade-dim);color:var(--text)}
+.exp-side-tab.active{border-color:var(--jade);color:var(--jade);background:var(--jade-soft)}
+.exp-side-num{font-family:var(--mono);font-size:10px;color:var(--jade-dim);background:rgba(0,201,167,.1);padding:2px 7px;border-radius:3px}
+.exp-content{display:none;animation:fadeUp .3s var(--ease)}
+.exp-content.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.content-card{background:rgba(0,201,167,.04);border:1px solid var(--border2);border-radius:var(--r);padding:20px;margin-bottom:14px}
+.content-card h3{font-family:var(--serif);font-size:15px;color:var(--text);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border2)}
+.content-h4{font-size:10px;color:var(--jade);letter-spacing:.15em;text-transform:uppercase;margin:14px 0 8px}
+.content-p{font-size:12.5px;color:var(--text2);line-height:2;margin-bottom:6px}
+.step-list{display:flex;flex-direction:column;gap:8px}
+.step-item{display:flex;gap:10px;align-items:flex-start}
+.step-n{font-family:var(--mono);font-size:10px;min-width:22px;height:22px;background:var(--jade-dim);color:var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step-n.key{background:var(--red)}
+.step-t{font-size:12.5px;color:var(--text2);line-height:1.8}
+
+/* AI助手 */
+#ai-bar{border-top:1px solid var(--border2);flex-shrink:0}
+#ai-toggle{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;transition:background .3s;border:none;background:transparent;width:100%}
+#ai-toggle:hover{background:var(--jade-soft)}
+#ai-avatar{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#5b9ef0,#1a3a7a);border:1px solid rgba(91,158,240,.4);display:flex;align-items:center;justify-content:center;animation:avatarPulse 3s ease infinite;flex-shrink:0}
+@keyframes avatarPulse{0%,100%{box-shadow:0 0 8px rgba(91,158,240,.3)}50%{box-shadow:0 0 20px rgba(91,158,240,.6)}}
+.ai-bubble-inner{width:8px;height:8px;background:rgba(255,255,255,.6);border-radius:50%;animation:bubbleFloat 2s ease infinite}
+@keyframes bubbleFloat{0%,100%{transform:translateY(0) scale(1);opacity:.6}50%{transform:translateY(-4px) scale(.8);opacity:1}}
+#ai-info{text-align:left}
+#ai-name{font-size:13px;color:var(--jade);font-weight:500}
+#ai-role{font-size:10px;color:var(--text3);margin-top:2px}
+#ai-chevron{margin-left:auto;color:var(--text3);font-size:12px;transition:transform .3s}
+#ai-panel{height:0;overflow:hidden;transition:height .4s var(--ease)}
+#ai-panel.open{height:260px}
+#chat-msgs{height:180px;overflow-y:auto;padding:12px 20px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:82%;padding:9px 13px;border-radius:10px;font-size:12px;line-height:1.7;animation:msgIn .3s var(--ease)}
+@keyframes msgIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.msg.bot{background:rgba(0,201,167,.07);border:1px solid rgba(0,201,167,.12);color:var(--text);align-self:flex-start;border-radius:3px 10px 10px 10px}
+.msg.user{background:rgba(107,158,240,.12);border:1px solid rgba(107,158,240,.2);color:var(--text);align-self:flex-end;border-radius:10px 3px 10px 10px}
+#ai-input-row{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border2)}
+#ai-input{flex:1;background:rgba(0,201,167,.05);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;padding:7px 12px;font-family:var(--sans);outline:none;transition:border-color .3s}
+#ai-input:focus{border-color:var(--jade)}
+#ai-send{padding:7px 16px;background:var(--jade-soft);border:1px solid var(--jade);color:var(--jade);border-radius:6px;cursor:pointer;font-size:12px;transition:all .3s;font-family:var(--sans)}
+#ai-send:hover{background:var(--jade);color:var(--ink)}
+
+/* 操作讲解 */
+.video-tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.video-tab{padding:7px 14px;border:1px solid var(--border2);border-radius:4px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .3s var(--ease);background:transparent;font-family:var(--sans)}
+.video-tab:hover{border-color:var(--jade-dim);color:var(--text)}
+.video-tab.active{border-color:var(--jade);color:var(--jade);background:var(--jade-soft)}
+.video-wrap{border-radius:var(--r);overflow:hidden;background:#000;margin-bottom:18px;aspect-ratio:16/9;position:relative}
+.video-wrap video{width:100%;height:100%;object-fit:contain;display:block}
+.video-key-steps{display:flex;flex-direction:column;gap:8px}
+.vks-item{display:flex;gap:10px;align-items:center;padding:10px 14px;background:var(--jade-soft);border:1px solid var(--border2);border-radius:var(--r2);font-size:12px;color:var(--text2)}
+.vks-n{font-family:var(--mono);font-size:10px;color:var(--jade);min-width:18px}
+
+/* ═══════════════════════════════════════
+   页面三：结果观察
+═══════════════════════════════════════ */
+#pg-result{z-index:12;display:flex;flex-direction:column}
+#result-topbar{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(10,14,26,.8);backdrop-filter:blur(20px);border-bottom:1px solid var(--border2);flex-shrink:0}
+#result-back{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);cursor:pointer;background:transparent;border:none;transition:color .3s;font-family:var(--sans)}
+#result-back:hover{color:var(--jade)}
+#result-exp-tabs{display:flex;gap:6px}
+.result-exp-tab{padding:8px 20px;border:1px solid var(--border2);border-radius:20px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .3s var(--ease);background:transparent;font-family:var(--sans)}
+.result-exp-tab:hover{border-color:var(--jade-dim);color:var(--text)}
+.result-exp-tab.active{border-color:var(--jade);color:var(--jade);background:var(--jade-soft);box-shadow:0 0 16px var(--jade-glow)}
+#result-body{flex:1;display:flex;overflow:hidden}
+.result-pane{display:none;width:100%;height:100%;flex-direction:row}
+.result-pane.active{display:flex}
+#result-three{flex:1;position:relative;min-width:0}
+#result-canvas{width:100%;height:100%;display:block}
+
+/* 结果面板 */
+#ctrl-panel{width:400px;flex-shrink:0;background:var(--glass2);backdrop-filter:blur(20px);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.ctrl-scroll{flex:1;overflow-y:auto;padding:24px 24px 16px}
+.ctrl-section{margin-bottom:22px}
+.ctrl-section-title{font-size:10px;color:var(--jade);letter-spacing:.18em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.ctrl-section-title::after{content:'';flex:1;height:1px;background:var(--border2)}
+
+/* HUD 数据 */
+.hud-bpm-wrap{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.hud-bpm-val{font-family:var(--mono);font-size:52px;color:var(--jade);line-height:1;text-shadow:0 0 20px rgba(0,201,167,.5)}
+.hud-bpm-unit{font-size:13px;color:var(--text3);font-family:var(--mono)}
+.hud-bar-label{font-size:10px;color:var(--text3);margin-bottom:5px;display:flex;justify-content:space-between}
+.hud-bar{height:5px;background:rgba(0,201,167,.12);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.hud-bar-fill{height:100%;background:linear-gradient(90deg,var(--jade-dim),var(--jade));border-radius:3px;transition:width .4s var(--ease)}
+
+/* ECG */
+.ecg-wrap{border:1px solid var(--border2);border-radius:var(--r2);overflow:hidden;margin-bottom:4px;background:rgba(3,8,18,.9)}
+.ecg-title{font-size:9px;color:var(--text3);padding:5px 10px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;letter-spacing:.08em}
+#ecg-canvas{width:100%;display:block}
+
+/* 按钮 */
+.ctrl-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.btn{padding:8px 16px;border:1px solid var(--border);border-radius:6px;background:rgba(0,201,167,.05);color:var(--text);font-size:12px;cursor:pointer;transition:all .3s var(--ease);font-family:var(--sans);position:relative;overflow:hidden;white-space:nowrap}
+.btn:hover{border-color:var(--jade);color:var(--jade);background:var(--jade-soft);transform:translateY(-1px)}
+.btn:active{transform:translateY(0) scale(.97)}
+.btn.on{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.btn.drug-ach{border-color:rgba(107,80,200,.4);color:var(--text2)}
+.btn.drug-ach:hover{border-color:#8b6ef0;color:#8b6ef0;background:rgba(139,110,240,.08)}
+.btn.drug-epi{border-color:rgba(240,146,74,.4);color:var(--text2)}
+.btn.drug-epi:hover{border-color:var(--orange);color:var(--orange);background:rgba(240,146,74,.08)}
+.btn.drug-highca{border-color:rgba(232,201,122,.4);color:var(--text2)}
+.btn.drug-highca:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+.btn.drug-lowca{border-color:rgba(107,158,240,.4);color:var(--text2)}
+.btn.drug-lowca:hover{border-color:var(--blue);color:var(--blue);background:rgba(107,158,240,.08)}
+.btn.danger:hover{border-color:var(--red);color:var(--red);background:rgba(224,92,92,.08)}
+
+/* 滑块 */
+.slider-wrap{margin-bottom:14px}
+.slider-header{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:7px}
+.slider-val{color:var(--jade);font-family:var(--mono)}
+input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:rgba(0,201,167,.15);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--jade);border-radius:50%;box-shadow:0 0 8px rgba(0,201,167,.5);transition:transform .2s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
+
+/* 状态标签 */
+.status-pill{display:inline-block;padding:4px 12px;border-radius:12px;font-size:11px;font-family:var(--mono);border:1px solid var(--jade);color:var(--jade);background:var(--jade-soft);margin-top:4px}
+.status-pill.warn{border-color:var(--orange);color:var(--orange);background:rgba(240,146,74,.08)}
+.status-pill.danger{border-color:var(--red);color:var(--red);background:rgba(224,92,92,.08)}
+
+/* 开关 */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px 0}
+.toggle-label{font-size:12px;color:var(--text2)}
+.toggle{width:40px;height:20px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid var(--border);cursor:pointer;position:relative;transition:background .3s;flex-shrink:0}
+.toggle.on{background:rgba(0,201,167,.25);border-color:var(--jade)}
+.toggle::after{content:'';position:absolute;left:3px;top:3px;width:12px;height:12px;background:var(--text3);border-radius:50%;transition:all .3s}
+.toggle.on::after{left:23px;background:var(--jade)}
+
+/* 张力/AP canvas wrap */
+.wave-wrap{border:1px solid var(--border2);border-radius:var(--r2);overflow:hidden;margin-bottom:14px;background:rgba(3,8,18,.9)}
+.wave-title{font-size:9px;color:var(--text3);padding:5px 10px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;letter-spacing:.08em}
+#tension-canvas,#reflex-diagram-canvas{width:100%;display:block}
+
+/* 反射弧 */
+.reflex-stage-text{font-size:11px;color:var(--text2);line-height:2;min-height:44px;margin-top:8px}
+
+/* 涟漪 */
+@keyframes ripple{to{transform:scale(4);opacity:0}}
+.ripple{position:absolute;border-radius:50%;background:rgba(0,201,167,.25);width:30px;height:30px;margin:-15px;animation:ripple .6s linear;pointer-events:none}
+
+/* 响应式 */
+@media(max-width:768px){
+  #side-panel{width:100%;top:auto;bottom:0;height:65vh;transform:translateY(100%);border-left:none;border-top:1px solid var(--border)}
+  #side-panel.open{transform:translateY(0)}
+  .result-pane.active{flex-direction:column}
+  #ctrl-panel{width:100%;height:50vh;border-left:none;border-top:1px solid var(--border)}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════ 页面一：开场 ═══════ -->
+<div class="page active" id="pg-intro">
+  <canvas id="intro-canvas"></canvas>
+  <div id="intro-inner">
+    <div id="intro-logo">数字生命 · 虚拟机能学实验平台</div>
+    <div id="intro-text-wrap">
+      <div id="intro-text"></div>
+    </div>
+    <div id="intro-progress-wrap">
+      <div id="intro-progress-bar"><div id="intro-progress-fill"></div></div>
+      <div id="intro-progress-text">正在初始化三维场景...</div>
+    </div>
+    <button id="btn-enter" onclick="enterLab()">进 入 实 验 室 →</button>
+  </div>
+</div>
+
+<!-- ═══════ 页面二：主界面 ═══════ -->
+<div class="page" id="pg-main">
+  <canvas id="three-canvas"></canvas>
+
+  <!-- 顶部导航 -->
+  <div id="topnav">
+    <div id="nav-logo">
+      <div id="nav-logo-bar"></div>
+      <div id="nav-logo-text">数字生命</div>
+    </div>
+    <div id="nav-tabs">
+      <button class="nav-tab" onclick="openPanel('preview',this)">实验预习</button>
+      <button class="nav-tab" onclick="openPanel('video',this)">操作讲解</button>
+      <button class="nav-tab" onclick="goResult()">结果观察</button>
+    </div>
+    <div id="nav-status"><div id="nav-dot"></div>系统运行中</div>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div id="side-panel">
+
+    <!-- 实验预习 -->
+    <div class="panel-body" id="panel-preview" style="display:none">
+      <div class="panel-section">
+        <div class="section-label">选择实验</div>
+        <div class="exp-tab-row">
+          <div class="exp-side-tab active" onclick="switchExpPreview(0,this)"><span class="exp-side-num">01</span>蛙心灌流</div>
+          <div class="exp-side-tab" onclick="switchExpPreview(1,this)"><span class="exp-side-num">02</span>骨骼肌收缩</div>
+          <div class="exp-side-tab" onclick="switchExpPreview(2,this)"><span class="exp-side-num">03</span>反射弧分析</div>
+        </div>
+      </div>
+
+      <!-- 蛙心灌流 -->
+      <div class="exp-content active" id="ec-0">
+        <div class="content-card">
+          <h3>蛙心灌流实验</h3>
+          <div class="content-h4">研究目的</div>
+          <p class="content-p">观察药物和离子浓度变化对离体蛙心收缩活动的影响，理解神经体液调节机制。</p>
+          <div class="content-h4">实验原理</div>
+          <p class="content-p">蛙心肌细胞具有自律性，以离体斯氏灌流维持活动。β受体激动剂肾上腺素产生正性肌力与正性频率效应；M受体激动剂乙酰胆碱抑制窦房结自律性。Ca²⁺是兴奋-收缩耦联关键离子，浓度变化直接影响收缩幅度。</p>
+          <div class="content-h4">操作步骤</div>
+          <div class="step-list">
+            <div class="step-item"><div class="step-n">1</div><div class="step-t">制备蛙心灌流标本，暴露心脏</div></div>
+            <div class="step-item"><div class="step-n key">2</div><div class="step-t"><strong>关键：</strong>主动脉插管固定后开始任氏液灌流，待心跳稳定5分钟后记录正常值</div></div>
+            <div class="step-item"><div class="step-n">3</div><div class="step-t">依次添加乙酰胆碱 → 冲洗 → 肾上腺素 → 冲洗 → 高钙任氏液 → 冲洗 → 低钙任氏液</div></div>
+            <div class="step-item"><div class="step-n">4</div><div class="step-t">每次给药均记录心率与收缩幅度变化</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 骨骼肌 -->
+      <div class="exp-content" id="ec-1">
+        <div class="content-card">
+          <h3>骨骼肌收缩实验</h3>
+          <div class="content-h4">研究目的</div>
+          <p class="content-p">观察不同频率和强度的电刺激对骨骼肌收缩形式的影响，理解单收缩与强直收缩的关系。</p>
+          <div class="content-h4">实验原理</div>
+          <p class="content-p">骨骼肌收缩遵循全或无定律。刺激频率低时形成单收缩；频率升高出现不完全强直；频率≥15Hz时进入完全强直收缩，肌力最大。兴奋-收缩耦联依赖Ca²⁺从肌质网释放与肌钙蛋白结合。</p>
+          <div class="content-h4">操作步骤</div>
+          <div class="step-list">
+            <div class="step-item"><div class="step-n">1</div><div class="step-t">制备蟾蜍腓肠肌标本，连接张力换能器</div></div>
+            <div class="step-item"><div class="step-n key">2</div><div class="step-t"><strong>关键：</strong>先确定阈强度，从最小有效刺激开始</div></div>
+            <div class="step-item"><div class="step-n">3</div><div class="step-t">逐步升高刺激频率：1Hz → 5Hz → 10Hz → 20Hz → 50Hz，记录各频率收缩图形</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 反射弧 -->
+      <div class="exp-content" id="ec-2">
+        <div class="content-card">
+          <h3>反射弧分析实验</h3>
+          <div class="content-h4">研究目的</div>
+          <p class="content-p">分析反射弧各组成部分的作用，验证反射弧完整性是完成反射活动的必要条件。</p>
+          <div class="content-h4">实验原理</div>
+          <p class="content-p">反射弧五要素：感受器 → 传入神经 → 神经中枢 → 传出神经 → 效应器。任一环节损伤则反射消失。可通过逐一破坏各环节来验证其功能。</p>
+          <div class="content-h4">操作步骤</div>
+          <div class="step-list">
+            <div class="step-item"><div class="step-n key">1</div><div class="step-t"><strong>关键：</strong>制备脊蛙标本——去除大脑，保留脊髓</div></div>
+            <div class="step-item"><div class="step-n">2</div><div class="step-t">0.5%稀盐酸刺激足部，观察屈腿反射，水洗后进行下一步</div></div>
+            <div class="step-item"><div class="step-n">3</div><div class="step-t">依次：破坏感受器 → 破坏脊髓中枢 → 直接电刺激坐骨神经，分别观察反应</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 操作讲解 -->
+    <div class="panel-body" id="panel-video" style="display:none">
+      <div class="section-label">选择实验视频</div>
+      <div class="video-tabs">
+        <button class="video-tab active" onclick="switchVideo('heart',this)">蛙心灌流</button>
+        <button class="video-tab" onclick="switchVideo('muscle',this)">骨骼肌收缩</button>
+        <button class="video-tab" onclick="switchVideo('reflex',this)">反射弧分析</button>
+      </div>
+      <div class="video-wrap">
+        <video id="main-video" controls preload="metadata">
+          <source src="https://frog.oss-cn-shanghai.aliyuncs.com/29557264358-1-192.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div class="section-label">操作要点</div>
+      <div class="video-key-steps" id="video-steps"></div>
+    </div>
+
+    <!-- AI助手 -->
+    <div id="ai-bar">
+      <button id="ai-toggle" onclick="toggleAI()">
+        <div id="ai-avatar"><div class="ai-bubble-inner"></div></div>
+        <div id="ai-info">
+          <div id="ai-name">幽幽瓶</div>
+          <div id="ai-role">机能学 AI 导师</div>
+        </div>
+        <div id="ai-chevron">▲</div>
+      </button>
+      <div id="ai-panel">
+        <div id="chat-msgs">
+          <div class="msg bot">你好！我是幽幽瓶 🔵 有关蛙心灌流、骨骼肌收缩、反射弧的问题都可以问我~</div>
+        </div>
+        <div id="ai-input-row">
+          <input type="text" id="ai-input" placeholder="问幽幽瓶..." onkeydown="if(event.key==='Enter')sendAI()">
+          <button id="ai-send" onclick="sendAI()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 页面三：结果观察 ═══════ -->
+<div class="page" id="pg-result">
+  <div id="result-topbar">
+    <button id="result-back" onclick="backToMain()">← 返回主界面</button>
+    <div id="result-exp-tabs">
+      <button class="result-exp-tab active" onclick="switchResultExp(0,this)">蛙心灌流</button>
+      <button class="result-exp-tab" onclick="switchResultExp(1,this)">骨骼肌收缩</button>
+      <button class="result-exp-tab" onclick="switchResultExp(2,this)">反射弧分析</button>
+    </div>
+    <div style="width:80px"></div>
+  </div>
+  <div id="result-body">
+
+    <!-- 实验A：蛙心灌流 -->
+    <div class="result-pane active" id="rp-heart">
+      <div id="result-three"><canvas id="result-canvas"></canvas></div>
+      <div id="ctrl-panel">
+        <div class="ctrl-scroll">
+          <!-- HUD -->
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">实时数据</div>
+            <div class="hud-bpm-wrap">
+              <span class="hud-bpm-val" id="disp-bpm">72</span>
+              <span class="hud-bpm-unit">bpm</span>
+            </div>
+            <div class="hud-bar-label"><span>收缩强度</span><span id="disp-amp">80%</span></div>
+            <div class="hud-bar"><div class="hud-bar-fill" id="amp-bar" style="width:80%"></div></div>
+            <div class="ecg-wrap">
+              <div class="ecg-title"><span>心电图 ECG</span><span id="ecg-drug-label" style="color:var(--jade)">正常窦性心律</span></div>
+              <canvas id="ecg-canvas" height="72"></canvas>
+            </div>
+          </div>
+          <!-- 灌流控制 -->
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">灌流控制</div>
+            <div class="ctrl-row">
+              <button class="btn" id="btn-perfusion" onclick="togglePerfusion()">▶ 开始灌流</button>
+              <button class="btn" onclick="washHeart()">🚿 冲洗</button>
+            </div>
+          </div>
+          <!-- 药物 -->
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">药物施加</div>
+            <div class="ctrl-row">
+              <button class="btn drug-ach" onclick="applyDrug('ach',this)">乙酰胆碱</button>
+              <button class="btn drug-epi" onclick="applyDrug('epi',this)">肾上腺素</button>
+            </div>
+            <div class="ctrl-row">
+              <button class="btn drug-highca" onclick="applyDrug('highca',this)">高钙任氏液</button>
+              <button class="btn drug-lowca" onclick="applyDrug('lowca',this)">低钙任氏液</button>
+            </div>
+            <div id="drug-status" class="status-pill" style="display:none">正常</div>
+          </div>
+          <!-- 心率滑块 -->
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">心率调节</div>
+            <div class="slider-wrap">
+              <div class="slider-header"><span>基础心率</span><span class="slider-val"><span id="bpm-val">72</span> bpm</span></div>
+              <input type="range" min="40" max="120" value="72" id="bpm-slider" oninput="setBaseBPM(this.value)">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 实验B：骨骼肌 -->
+    <div class="result-pane" id="rp-muscle">
+      <div id="result-three-muscle" style="flex:1;position:relative"><canvas id="muscle-canvas" style="width:100%;height:100%;display:block"></canvas></div>
+      <div id="ctrl-panel-muscle" style="width:400px;flex-shrink:0;background:var(--glass2);backdrop-filter:blur(20px);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+        <div class="ctrl-scroll">
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">实时数据</div>
+            <div class="wave-wrap">
+              <div class="wave-title"><span>肌张力曲线</span><span id="muscle-state-label" style="color:var(--jade)">静息</span></div>
+              <canvas id="tension-canvas" height="72"></canvas>
+            </div>
+            <div id="muscle-state-pill" class="status-pill">静息状态</div>
+          </div>
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">刺激控制</div>
+            <div class="ctrl-row">
+              <button class="btn" onclick="singleStimulus()">⚡ 单次刺激</button>
+              <button class="btn" id="btn-cont" onclick="toggleContinuous()">🔄 连续刺激</button>
+              <button class="btn danger" onclick="stopMuscle()">■ 停止</button>
+            </div>
+          </div>
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">参数调节</div>
+            <div class="slider-wrap">
+              <div class="slider-header"><span>刺激频率</span><span class="slider-val"><span id="freq-val">10</span> Hz</span></div>
+              <input type="range" min="1" max="50" value="10" id="freq-slider" oninput="setFreq(this.value)">
+            </div>
+            <div class="slider-wrap">
+              <div class="slider-header"><span>刺激强度</span><span class="slider-val"><span id="int-val">60</span>%</span></div>
+              <input type="range" min="0" max="100" value="60" id="int-slider" oninput="setIntensity(this.value)">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 实验C：反射弧 -->
+    <div class="result-pane" id="rp-reflex">
+      <div id="result-three-reflex" style="flex:1;position:relative"><canvas id="reflex-canvas-3d" style="width:100%;height:100%;display:block"></canvas></div>
+      <div id="ctrl-panel-reflex" style="width:400px;flex-shrink:0;background:var(--glass2);backdrop-filter:blur(20px);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+        <div class="ctrl-scroll">
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">反射弧示意</div>
+            <div class="wave-wrap">
+              <div class="wave-title"><span>五环节传导图</span><span id="reflex-stage-label" style="color:var(--jade)">待刺激</span></div>
+              <canvas id="reflex-diagram-canvas" height="64"></canvas>
+            </div>
+            <div id="reflex-stage-text" class="reflex-stage-text">点击"施加足部刺激"开始反射弧传导演示</div>
+          </div>
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">刺激控制</div>
+            <div class="ctrl-row">
+              <button class="btn" onclick="stimulateFoot()">👣 施加足部刺激</button>
+              <button class="btn" onclick="stimulateEfferent()">⚡ 直接刺激传出神经</button>
+            </div>
+          </div>
+          <div class="ctrl-section">
+            <div class="ctrl-section-title">环节损伤控制</div>
+            <div class="toggle-row">
+              <span class="toggle-label">脊髓横断</span>
+              <div class="toggle" id="tog-spinal" onclick="toggleSpinal(this)"></div>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-label">破坏感受器</span>
+              <div class="toggle" id="tog-receptor" onclick="toggleReceptor(this)"></div>
+            </div>
+            <div id="reflex-status-pill" class="status-pill">反射弧完整</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+/* ═══════════════════════════════════════
+   全局可配置变量
+═══════════════════════════════════════ */
+const CFG = {
+  // DeepSeek API（请替换为你的Key）
+  AI_KEY: 'sk-f4998e69a1db439aa32d0af1f4029fd4',
+  AI_URL: 'https://api.deepseek.com/chat/completions',
+  // 模型链接
+  M_LAB:   'https://frog.oss-cn-shanghai.aliyuncs.com/science_lab_lowpoly.glb',
+  M_FROG:  'https://frog.oss-cn-shanghai.aliyuncs.com/cc0____black-spotted_pond_frog.glb',
+  M_HEART: 'https://frog.oss-cn-shanghai.aliyuncs.com/Meshy_AI_Anatomical_Heart_Mode_0509051116_texture.glb',
+  M_LEG:   'https://frog.oss-cn-shanghai.aliyuncs.com/eupsophus_roseus_-_dicect_frog.glb',
+  // 视频链接
+  V_HEART:  'https://frog.oss-cn-shanghai.aliyuncs.com/29557264358-1-192.mp4',
+  V_MUSCLE: 'https://frog.oss-cn-shanghai.aliyuncs.com/1294819905-1-192.mp4',
+  V_REFLEX: 'https://frog.oss-cn-shanghai.aliyuncs.com/227283282-1-160.mp4',
+  // 心脏默认参数
+  DEFAULT_BPM: 72,
+  DRUG_DURATION: 10000,
+  TETANUS_HZ: 15,
+};
+
+/* ═══════════════════════════════════════
+   全局状态
+═══════════════════════════════════════ */
+const S = {
+  // 心脏
+  bpmBase: CFG.DEFAULT_BPM,
+  bpmMul: 1, ampMul: 1, glowColor: {r:.9,g:.05,b:.05},
+  perfusionOn: false, cardiacArrest: false,
+  currentDrug: null, drugTimer: null,
+  // 骨骼肌
+  muscleFreq: 10, muscleInt: 0.6,
+  contStim: false, contTimer: null,
+  legScaleTarget: 1,
+  // 反射弧
+  spinalCut: false, receptorDestroyed: false,
+  reflexStage: -1,
+};
+
+/* ═══════════════════════════════════════
+   开场动画
+═══════════════════════════════════════ */
+const INTRO_TEXT = `过去，机能学的第一课从一只青蛙开始。
+今天，我们从一行代码出发。
+
+我们用数字孪生重建每一次心跳，
+用人工智能还原每一条神经通路。
+
+不是回避实验，而是选择另一种尊重——
+让学生在虚拟中反复探索，
+在真实世界里一次做对。
+
+用模拟替代试错，
+用算法替代牺牲，
+用数字生命守护真实生命。
+
+——这，就是替代原则的意义。`;
+
+// 粒子背景
+(function initParticles() {
+  const c = document.getElementById('intro-canvas');
+  const ctx = c.getContext('2d');
+  const resize = () => { c.width = innerWidth; c.height = innerHeight; };
+  resize(); window.addEventListener('resize', resize);
+  const pts = Array.from({length:100}, () => ({
+    x: Math.random()*innerWidth, y: Math.random()*innerHeight,
+    vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3,
+    r: Math.random()*1.2+.4, a: Math.random()*.4+.15
+  }));
+  function draw() {
+    ctx.clearRect(0,0,c.width,c.height);
+    pts.forEach(p => {
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0) p.x=c.width; if(p.x>c.width) p.x=0;
+      if(p.y<0) p.y=c.height; if(p.y>c.height) p.y=0;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(0,201,167,${p.a})`; ctx.fill();
+    });
+    for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++) {
+      const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);
+      if(d<80){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y);
+        ctx.strokeStyle=`rgba(0,201,167,${.08*(1-d/80)})`; ctx.lineWidth=.5; ctx.stroke(); }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// 打字机
+(function typewriter() {
+  const el = document.getElementById('intro-text');
+  const chars = INTRO_TEXT.split('');
+  let i = 0;
+  const t = setInterval(() => {
+    if(i >= chars.length) {
+      clearInterval(t);
+      startProgress();
+      return;
+    }
+    const ch = chars[i];
+    if(ch === '\n') { el.appendChild(document.createElement('br')); }
+    else {
+      const s = document.createElement('span');
+      s.className = 'tw-char';
+      s.style.animationDelay = '0ms';
+      s.textContent = ch;
+      el.appendChild(s);
+    }
+    i++;
+  }, 45);
+})();
+
+// 进度条
+function startProgress() {
+  const fill = document.getElementById('intro-progress-fill');
+  const txt = document.getElementById('intro-progress-text');
+  const msgs = ['正在加载三维模型...','正在初始化物理引擎...','正在构建实验场景...','准备完成'];
+  let pct = 0;
+  const t = setInterval(() => {
+    pct += Math.random()*4+1;
+    if(pct >= 100) { pct=100; clearInterval(t); showEnterBtn(); }
+    fill.style.width = pct+'%';
+    txt.textContent = msgs[Math.min(3,Math.floor(pct/33))];
+  }, 80);
+}
+function showEnterBtn() {
+  const btn = document.getElementById('btn-enter');
+  btn.style.display = 'inline-block';
+}
+
+/* ═══════════════════════════════════════
+   页面切换
+═══════════════════════════════════════ */
+window.enterLab = function() {
+  document.getElementById('pg-intro').classList.remove('active');
+  setTimeout(() => {
+    document.getElementById('pg-main').classList.add('active');
+    initMainThree();
+    initResultThree();
+    startECGLoop();
+    startTensionLoop();
+    startReflexDiagramLoop();
+  }, 500);
+};
+
+window.goResult = function() {
+  document.getElementById('pg-main').classList.remove('active');
+  document.getElementById('pg-result').classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  onResultResize();
+};
+
+window.backToMain = function() {
+  document.getElementById('pg-result').classList.remove('active');
+  document.getElementById('pg-main').classList.add('active');
+};
+
+/* ═══════════════════════════════════════
+   主界面 Three.js
+═══════════════════════════════════════ */
+let mainRenderer, mainScene, mainCamera, mainControls, mainComposer;
+let mainFrog = null;
+
+function initMainThree() {
+  const canvas = document.getElementById('three-canvas');
+  mainRenderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  mainRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  mainRenderer.setSize(innerWidth, innerHeight);
+  mainRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  mainRenderer.toneMappingExposure = 1.1;
+
+  mainScene = new THREE.Scene();
+  mainScene.background = new THREE.Color(0x0a0e1a);
+  mainScene.fog = new THREE.FogExp2(0x0a0e1a, 0.035);
+
+  mainCamera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.01, 200);
+  mainCamera.position.set(0, 2.5, 7);
+
+  mainControls = new OrbitControls(mainCamera, canvas);
+  mainControls.enableDamping = true; mainControls.dampingFactor = 0.06;
+  mainControls.autoRotate = true; mainControls.autoRotateSpeed = 0.3;
+  mainControls.maxDistance = 20; mainControls.minDistance = 1;
+  mainControls.target.set(0,0,0);
+
+  // 灯光
+  mainScene.add(new THREE.AmbientLight(0x112244, 2.5));
+  const top = new THREE.DirectionalLight(0xfff5e0, 3);
+  top.position.set(0,8,2); mainScene.add(top);
+  const side = new THREE.PointLight(0x00c9a7, 2, 30);
+  side.position.set(-4,2,3); mainScene.add(side);
+  const fill = new THREE.PointLight(0x4477ff, 1, 20);
+  fill.position.set(4,1,-2); mainScene.add(fill);
+
+  // 地面网格
+  const grid = new THREE.GridHelper(40,60,0x00c9a7,0x0d1929);
+  grid.position.y=-2.5; mainScene.add(grid);
+
+  // Bloom
+  mainComposer = new EffectComposer(mainRenderer);
+  mainComposer.addPass(new RenderPass(mainScene, mainCamera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.6,0.5,0.82);
+  mainComposer.addPass(bloom);
+
+  // 加载实验室
+  const loader = new GLTFLoader();
+  loader.load(CFG.M_LAB, g=>{
+    g.scene.scale.setScalar(0.5); g.scene.position.set(0,-2.5,0);
+    mainScene.add(g.scene);
+  }, null, ()=>{
+    console.warn('实验室加载失败，使用线框替代');
+    mainScene.add(buildFallbackLab());
+  });
+
+  // 加载青蛙
+  loader.load(CFG.M_FROG, g=>{
+    mainFrog = g.scene;
+    mainFrog.scale.setScalar(2.2);
+    mainFrog.position.set(0,-1.2,0);
+    mainScene.add(mainFrog);
+  }, null, ()=>{
+    console.warn('青蛙加载失败');
+    mainFrog = buildFallbackFrog();
+    mainScene.add(mainFrog);
+  });
+
+  window.addEventListener('resize', ()=>{
+    mainCamera.aspect = innerWidth/innerHeight;
+    mainCamera.updateProjectionMatrix();
+    mainRenderer.setSize(innerWidth,innerHeight);
+    mainComposer.setSize(innerWidth,innerHeight);
+  });
+
+  (function animMain(){
+    requestAnimationFrame(animMain);
+    mainControls.update();
+    mainComposer.render();
+  })();
+}
+
+function buildFallbackLab() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({color:0x0d1929,wireframe:true});
+  const table = new THREE.Mesh(new THREE.BoxGeometry(10,.15,5),mat);
+  table.position.y=-2.5; g.add(table);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.2,.04,8,32),new THREE.MeshBasicMaterial({color:0x00c9a7}));
+  rim.position.y=5; rim.rotation.x=Math.PI/2; g.add(rim);
+  return g;
+}
+function buildFallbackFrog() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshPhongMaterial({color:0x2d8a4e});
+  const body = new THREE.Mesh(new THREE.SphereGeometry(.5,12,8),mat); g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.28,10,7),mat);
+  head.position.set(0,.35,.28); g.add(head);
+  return g;
+}
+
+/* ═══════════════════════════════════════
+   结果观察 Three.js
+═══════════════════════════════════════ */
+let resRenderer, resScene, resCamera, resControls, resComposer;
+let heartModel=null, legModel=null, frogModel=null;
+let perfParticles=null;
+let nerveLines=[];
+let reflexNodes=[];
+const clockRes = new THREE.Clock();
+
+function initResultThree() {
+  const canvas = document.getElementById('result-canvas');
+  resRenderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  resRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  resRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  resRenderer.toneMappingExposure = 1.1;
+
+  resScene = new THREE.Scene();
+  resScene.background = new THREE.Color(0x080c18);
+  resScene.fog = new THREE.FogExp2(0x080c18, 0.04);
+
+  resCamera = new THREE.PerspectiveCamera(40,1,.01,100);
+  resCamera.position.set(0,1,5);
+
+  resControls = new OrbitControls(resCamera, canvas);
+  resControls.enableDamping=true; resControls.dampingFactor=0.07;
+  resControls.maxDistance=12; resControls.minDistance=0.5;
+
+  resScene.add(new THREE.AmbientLight(0x1a2844,3));
+  const topL = new THREE.PointLight(0xfff8f0,4,25); topL.position.set(0,6,0); resScene.add(topL);
+  const sideL = new THREE.PointLight(0x00c9a7,2,15); sideL.position.set(-3,1,2); resScene.add(sideL);
+
+  resComposer = new EffectComposer(resRenderer);
+  resComposer.addPass(new RenderPass(resScene,resCamera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(800,600),.9,.5,.8);
+  resComposer.addPass(bloom);
+
+  // 加载心脏
+  const loader = new GLTFLoader();
+  loader.load(CFG.M_HEART, g=>{
+    heartModel=g.scene; heartModel.scale.setScalar(2.2);
+    heartModel.position.set(0,0,0); heartModel.visible=false;
+    resScene.add(heartModel);
+    // 玻璃插管
+    const tubeMat = new THREE.MeshPhongMaterial({color:0x44ddcc,transparent:true,opacity:.35,shininess:200});
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.8,16),tubeMat);
+    tube.position.set(0,.9,0); heartModel.add(tube);
+  }, null, ()=>{ console.warn('心脏加载失败'); heartModel=buildFallbackHeart(); heartModel.visible=false; resScene.add(heartModel); });
+
+  loader.load(CFG.M_LEG, g=>{
+    legModel=g.scene; legModel.scale.setScalar(2.2);
+    legModel.position.set(0,-.5,0); legModel.visible=false;
+    resScene.add(legModel);
+  }, null, ()=>{ console.warn('腿部加载失败'); legModel=buildFallbackLeg(); legModel.visible=false; resScene.add(legModel); });
+
+  loader.load(CFG.M_FROG, g=>{
+    frogModel=g.scene; frogModel.scale.setScalar(2.2);
+    frogModel.position.set(0,-1,0); frogModel.visible=false;
+    resScene.add(frogModel);
+    buildNerveOverlay();
+  }, null, ()=>{ console.warn('青蛙(结果)加载失败'); frogModel=buildFallbackFrog(); frogModel.scale.setScalar(2.2); frogModel.visible=false; resScene.add(frogModel); buildNerveOverlay(); });
+
+  buildPerfusionParticles();
+  onResultResize();
+
+  window.addEventListener('resize', onResultResize);
+  (function animRes(){
+    requestAnimationFrame(animRes);
+    const dt = clockRes.getDelta();
+    const t = clockRes.getElapsedTime();
+    resControls.update();
+    animHeart(t);
+    animLeg(t);
+    animReflex(t);
+    animPerfusion();
+    resComposer.render();
+  })();
+}
+
+function onResultResize() {
+  const vp = document.getElementById('result-three');
+  if(!vp||!resRenderer) return;
+  const w=vp.clientWidth, h=vp.clientHeight;
+  resCamera.aspect=w/h; resCamera.updateProjectionMatrix();
+  resRenderer.setSize(w,h); resComposer.setSize(w,h);
+}
+
+function buildFallbackHeart(){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshPhongMaterial({color:0xcc3333,emissive:0x330000});
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(.5,14,10),mat));
+  return g;
+}
+function buildFallbackLeg(){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshPhongMaterial({color:0x8b4513});
+  const t=new THREE.Mesh(new THREE.CylinderGeometry(.1,.08,.8,8),mat);
+  t.position.y=.4; g.add(t);
+  return g;
+}
+
+// 灌流粒子
+function buildPerfusionParticles(){
+  const count=200;
+  const pos=new Float32Array(count*3);
+  for(let i=0;i<count;i++){
+    pos[i*3]=(Math.random()-.5)*.2;
+    pos[i*3+1]=Math.random()*2-.5;
+    pos[i*3+2]=(Math.random()-.5)*.2;
+  }
+  const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.PointsMaterial({color:0x00ff88,size:.03,transparent:true,opacity:0});
+  perfParticles=new THREE.Points(geo,mat); resScene.add(perfParticles);
+}
+
+function animPerfusion(){
+  if(!perfParticles||!S.perfusionOn) return;
+  const pos=perfParticles.geometry.attributes.position;
+  for(let i=0;i<pos.count;i++){
+    pos.array[i*3+1]-=.025;
+    if(pos.array[i*3+1]<-.8) pos.array[i*3+1]=1.5;
+  }
+  pos.needsUpdate=true;
+}
+
+// 神经线条（反射弧用）
+function buildNerveOverlay(){
+  const mat=new THREE.LineBasicMaterial({color:0x00c9a7,transparent:true,opacity:0});
+  const pts1=[new THREE.Vector3(0,.3,-.1),new THREE.Vector3(0,-.2,0),new THREE.Vector3(-.3,-.8,.1),new THREE.Vector3(-.35,-1.4,0)];
+  const pts2=pts1.map(p=>new THREE.Vector3(-p.x,p.y,p.z));
+  [pts1,pts2].forEach(pts=>{
+    const geo=new THREE.BufferGeometry().setFromPoints(pts);
+    const l=new THREE.Line(geo,mat.clone()); resScene.add(l); nerveLines.push(l);
+  });
+
+  // 反射弧节点球
+  const nodePositions=[
+    new THREE.Vector3(0,-1.5,.3),   // 感受器-足部
+    new THREE.Vector3(0,-.5,.1),    // 传入神经
+    new THREE.Vector3(0,.2,-.2),    // 脊髓中枢
+    new THREE.Vector3(0,-.3,.05),   // 传出神经
+    new THREE.Vector3(-.4,-1.2,.2), // 效应器
+  ];
+  const nodeColors=[0x00ff88,0x00c9a7,0xffffff,0x00c9a7,0xf09224];
+  nodePositions.forEach((pos,i)=>{
+    const sphere=new THREE.Mesh(new THREE.SphereGeometry(.04,8,8),
+      new THREE.MeshBasicMaterial({color:nodeColors[i],transparent:true,opacity:.3}));
+    sphere.position.copy(pos); resScene.add(sphere); reflexNodes.push(sphere);
+  });
+}
+
+/* ═══════════════════════════════════════
+   心脏搏动动画
+═══════════════════════════════════════ */
+function animHeart(t){
+  if(!heartModel||!heartModel.visible) return;
+  const bpm = S.bpmBase * S.bpmMul;
+  const period = 60/bpm;
+  const phase = (t%period)/period;
+  let scale=1;
+  const amp=S.ampMul;
+  if(S.cardiacArrest){ scale=.99; }
+  else if(phase<.15){ scale=1+.08*amp*Math.sin(phase/.15*Math.PI); }
+  else if(phase<.5){ const p=(phase-.15)/.35; scale=1+.22*amp*Math.sin(p*Math.PI); }
+  else { scale=1; }
+  heartModel.scale.setScalar(scale*2.2);
+  heartModel.traverse(c=>{ if(c.isMesh&&c.material&&c.material.emissive){
+    const g=S.glowColor;
+    c.material.emissive.setRGB(g.r*(scale-.9)*4,g.g*(scale-.9),g.b*(scale-.9));
+    c.material.emissiveIntensity=Math.max(0,(scale-1)*4);
+  }});
+  document.getElementById('disp-bpm').textContent=Math.round(bpm);
+  document.getElementById('bpm-val').textContent=Math.round(bpm);
+  const ampPct=Math.round(S.ampMul*80);
+  document.getElementById('disp-amp').textContent=ampPct+'%';
+  document.getElementById('amp-bar').style.width=ampPct+'%';
+}
+
+/* ═══════════════════════════════════════
+   骨骼肌动画
+═══════════════════════════════════════ */
+function animLeg(t){
+  if(!legModel||!legModel.visible) return;
+  if(S.legScaleTarget!==undefined){
+    const cur=legModel.scale.y;
+    const next=cur+(S.legScaleTarget-cur)*.15;
+    legModel.scale.set(legModel.scale.x, next, legModel.scale.z);
+  }
+}
+
+/* ═══════════════════════════════════════
+   反射弧动画
+═══════════════════════════════════════ */
+function animReflex(t){
+  // 节点脉冲
+  reflexNodes.forEach((n,i)=>{
+    const isActive=i===S.reflexStage;
+    n.material.opacity = isActive ? .9 : .2;
+    if(isActive) n.scale.setScalar(1+.3*Math.sin(t*8));
+    else n.scale.setScalar(1);
+  });
+  nerveLines.forEach(l=>{ l.material.opacity = S.reflexStage>=1&&S.reflexStage<=3 ? .7 : .15; });
+}
+
+/* ═══════════════════════════════════════
+   结果观察：实验切换
+═══════════════════════════════════════ */
+window.switchResultExp = function(idx, btn){
+  document.querySelectorAll('.result-exp-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.result-pane').forEach((p,i)=>p.classList.toggle('active',i===idx));
+  // 模型显示切换
+  if(heartModel) heartModel.visible=idx===0;
+  if(legModel) legModel.visible=idx===1;
+  if(frogModel) frogModel.visible=idx===2;
+  if(perfParticles) perfParticles.material.opacity=0; S.perfusionOn=false;
+  // 相机位置
+  const positions=[
+    {pos:new THREE.Vector3(0,1,4),look:new THREE.Vector3(0,0,0)},
+    {pos:new THREE.Vector3(0,.5,4.5),look:new THREE.Vector3(0,-.5,0)},
+    {pos:new THREE.Vector3(1,.5,5),look:new THREE.Vector3(0,-.5,0)},
+  ];
+  const tp=positions[idx];
+  let prog=0;
+  const startPos=resCamera.position.clone(), startLook=resControls.target.clone();
+  const iv=setInterval(()=>{ prog+=.05; if(prog>=1){prog=1;clearInterval(iv);}
+    resCamera.position.lerpVectors(startPos,tp.pos,prog);
+    resControls.target.lerpVectors(startLook,tp.look,prog);
+    resControls.update();
+  },16);
+  onResultResize();
+};
+
+/* ═══════════════════════════════════════
+   蛙心灌流 控制逻辑
+═══════════════════════════════════════ */
+const DRUGS={
+  ach:{rateM:.6,ampM:.7,glow:{r:.2,g:.1,b:.9},arrest:true,label:'乙酰胆碱 ↓心率 ↓收缩'},
+  epi:{rateM:1.3,ampM:1.4,glow:{r:1,g:.25,b:0},arrest:false,label:'肾上腺素 ↑心率 ↑收缩'},
+  highca:{rateM:1,ampM:1.5,glow:{r:.9,g:.8,b:.2},arrest:false,label:'高钙任氏液 ↑收缩幅度'},
+  lowca:{rateM:.9,ampM:.5,glow:{r:.2,g:.5,b:1},arrest:false,label:'低钙任氏液 ↓收缩幅度'},
+};
+
+window.applyDrug = function(key){
+  const d=DRUGS[key]; if(!d) return;
+  S.bpmMul=d.rateM; S.ampMul=d.ampM; S.glowColor=d.glow; S.currentDrug=key;
+  if(d.arrest&&Math.random()<.4){ S.cardiacArrest=true; setTimeout(()=>S.cardiacArrest=false,1500); }
+  const badge=document.getElementById('drug-status');
+  badge.textContent=d.label; badge.style.display='inline-block';
+  badge.className='status-pill';
+  document.getElementById('ecg-drug-label').textContent=d.label;
+  if(S.drugTimer) clearTimeout(S.drugTimer);
+  S.drugTimer=setTimeout(()=>washHeart(),CFG.DRUG_DURATION);
+  addRipple(event);
+};
+
+window.washHeart = function(){
+  S.bpmMul=1; S.ampMul=1; S.glowColor={r:.9,g:.05,b:.05}; S.cardiacArrest=false;
+  const badge=document.getElementById('drug-status');
+  badge.textContent='已冲洗，恢复正常'; badge.style.display='inline-block';
+  document.getElementById('ecg-drug-label').textContent='正常窦性心律';
+};
+
+window.togglePerfusion = function(){
+  S.perfusionOn=!S.perfusionOn;
+  const btn=document.getElementById('btn-perfusion');
+  btn.textContent=S.perfusionOn?'■ 停止灌流':'▶ 开始灌流';
+  btn.classList.toggle('on',S.perfusionOn);
+  if(perfParticles) perfParticles.material.opacity=S.perfusionOn?.8:0;
+};
+
+window.setBaseBPM = function(v){
+  S.bpmBase=parseInt(v);
+  document.getElementById('bpm-val').textContent=v;
+};
+
+/* ═══════════════════════════════════════
+   ECG 波形合成算法
+   P波+QRS+T波加权正弦叠加，随bpm缩放周期，随ampMul缩放幅度
+═══════════════════════════════════════ */
+function ecgSample(phase, amp){
+  let v=0;
+  if(phase>.10&&phase<.22) v+=.15*Math.sin((phase-.10)/.12*Math.PI);
+  if(phase>.28&&phase<.32) v-=.12*Math.sin((phase-.28)/.04*Math.PI);
+  if(phase>.28&&phase<.44) v+=1.0*Math.exp(-Math.pow((phase-.34)/.025,2));
+  if(phase>.36&&phase<.44) v-=.18*Math.sin((phase-.36)/.08*Math.PI);
+  if(phase>.50&&phase<.75) v+=.30*Math.sin((phase-.50)/.25*Math.PI);
+  return v*amp;
+}
+
+let ecgPhase=0;
+const ecgBuf=new Array(320).fill(0);
+function startECGLoop(){
+  const c=document.getElementById('ecg-canvas');
+  const ctx=c.getContext('2d');
+  function loop(){
+    const bpm=S.bpmBase*S.bpmMul;
+    ecgPhase+=(1/60)*(bpm/60);
+    if(ecgPhase>1) ecgPhase-=1;
+    let sample=S.cardiacArrest?0:ecgSample(ecgPhase,S.ampMul);
+    ecgBuf.shift(); ecgBuf.push(sample);
+    const w=c.width=c.offsetWidth||320, h=72;
+    c.height=h;
+    ctx.fillStyle='rgba(3,8,18,.0)'; ctx.fillRect(0,0,w,h);
+    // 网格
+    ctx.strokeStyle='rgba(0,201,167,.07)'; ctx.lineWidth=.5;
+    for(let x=0;x<w;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+    for(let y=0;y<h;y+=18){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+    // 波形
+    ctx.strokeStyle='#00c9a7'; ctx.lineWidth=1.5;
+    ctx.shadowBlur=6; ctx.shadowColor='#00c9a7';
+    ctx.beginPath();
+    ecgBuf.forEach((v,i)=>{
+      const x=(i/ecgBuf.length)*w, y=h/2-v*(h*.34);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke(); ctx.shadowBlur=0;
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+/* ═══════════════════════════════════════
+   骨骼肌 控制逻辑
+═══════════════════════════════════════ */
+window.singleStimulus = function(){
+  if(S.muscleInt<.3){ showMuscleState('阈下刺激，无反应','warn'); return; }
+  doTwitch();
+};
+
+function doTwitch(){
+  S.legScaleTarget=1-(.4*S.muscleInt);
+  setTimeout(()=>{ if(!S.contStim||S.muscleFreq<8) S.legScaleTarget=1; },300);
+  showMuscleState('单收缩','');
+}
+
+window.toggleContinuous = function(){
+  S.contStim=!S.contStim;
+  const btn=document.getElementById('btn-cont');
+  btn.classList.toggle('on',S.contStim);
+  btn.textContent=S.contStim?'■ 停止连续':'🔄 连续刺激';
+  if(S.contStim) runContinuous(); else { if(S.contTimer) clearInterval(S.contTimer); S.legScaleTarget=1; showMuscleState('静息',''); }
+};
+
+function runContinuous(){
+  if(S.contTimer) clearInterval(S.contTimer);
+  const hz=S.muscleFreq;
+  S.contTimer=setInterval(()=>{
+    if(!S.contStim){clearInterval(S.contTimer);return;}
+    const f=S.muscleFreq;
+    if(f>=CFG.TETANUS_HZ){ S.legScaleTarget=1-.45*S.muscleInt; showMuscleState('完全强直收缩',''); }
+    else if(f>=8){ S.legScaleTarget=.75+.08*Math.sin(Date.now()*.01); showMuscleState('不完全强直',''); }
+    else { doTwitch(); }
+  },1000/hz);
+}
+
+window.stopMuscle = function(){
+  S.contStim=false; if(S.contTimer) clearInterval(S.contTimer);
+  S.legScaleTarget=1;
+  document.getElementById('btn-cont').classList.remove('on');
+  document.getElementById('btn-cont').textContent='🔄 连续刺激';
+  showMuscleState('静息','');
+};
+
+window.setFreq = function(v){
+  S.muscleFreq=parseFloat(v);
+  document.getElementById('freq-val').textContent=v;
+  if(S.contStim) runContinuous();
+};
+window.setIntensity = function(v){
+  S.muscleInt=v/100;
+  document.getElementById('int-val').textContent=v;
+};
+
+function showMuscleState(text, type){
+  document.getElementById('muscle-state-label').textContent=text;
+  const pill=document.getElementById('muscle-state-pill');
+  pill.textContent=text; pill.className='status-pill'+(type?' '+type:'');
+}
+
+// 肌张力波形
+const tensBuf=new Array(320).fill(0);
+function startTensionLoop(){
+  const c=document.getElementById('tension-canvas');
+  const ctx=c.getContext('2d');
+  function loop(){
+    const t=performance.now()/1000;
+    let val=0;
+    if(S.contStim){
+      const f=S.muscleFreq;
+      if(f>=CFG.TETANUS_HZ) val=.9*S.muscleInt;
+      else if(f>=8) val=.6*S.muscleInt+.12*Math.sin(2*Math.PI*f*t);
+      else val=.45*S.muscleInt*Math.abs(Math.sin(2*Math.PI*(f/2)*t));
+    } else if(S.legScaleTarget<.98){ val=(1-S.legScaleTarget)*1.5; }
+    tensBuf.shift(); tensBuf.push(val);
+    const w=c.width=c.offsetWidth||320, h=72; c.height=h;
+    ctx.fillStyle='rgba(3,8,18,0)'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='rgba(240,146,74,.08)'; ctx.lineWidth=.5;
+    for(let x=0;x<w;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+    for(let y=0;y<h;y+=18){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+    ctx.strokeStyle='#f0924a'; ctx.lineWidth=1.5;
+    ctx.shadowBlur=5; ctx.shadowColor='#f0924a';
+    ctx.beginPath();
+    tensBuf.forEach((v,i)=>{ const x=(i/tensBuf.length)*w,y=h-4-v*(h-8); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke(); ctx.shadowBlur=0;
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+/* ═══════════════════════════════════════
+   反射弧 控制逻辑
+═══════════════════════════════════════ */
+const REFLEX_NAMES=['感受器','传入神经','脊髓中枢','传出神经','效应器'];
+
+window.stimulateFoot = function(){
+  if(S.receptorDestroyed){ showReflexStatus('感受器已破坏，无信号传入','warn'); return; }
+  runReflexAnim(0);
+};
+
+window.stimulateEfferent = function(){
+  runReflexAnim(3, true); // 从传出神经开始
+};
+
+function runReflexAnim(startStage, efferentOnly=false){
+  let stage=startStage;
+  S.reflexStage=stage;
+  document.getElementById('reflex-stage-label').textContent=REFLEX_NAMES[stage];
+
+  const iv=setInterval(()=>{
+    stage++;
+    if(stage>4){ clearInterval(iv); S.reflexStage=-1;
+      document.getElementById('reflex-stage-label').textContent='传导完成';
+      if(!S.spinalCut) triggerLegTwitch();
+      return;
+    }
+    if(S.spinalCut&&stage===2&&!efferentOnly){ clearInterval(iv); S.reflexStage=-1;
+      document.getElementById('reflex-stage-text').textContent='⚠ 脊髓横断，信号中止于中枢';
+      showReflexStatus('中枢被切断，反射消失','danger'); return;
+    }
+    S.reflexStage=stage;
+    document.getElementById('reflex-stage-label').textContent=REFLEX_NAMES[stage];
+    document.getElementById('reflex-stage-text').textContent=
+      REFLEX_NAMES.slice(0,stage+1).map((n,i)=>i===stage?`▶ ${n}`:`✓ ${n}`).join(' → ');
+  },400);
+}
+
+function triggerLegTwitch(){
+  if(!frogModel) return;
+  let p=0;
+  const iv=setInterval(()=>{ p+=16;
+    if(p>350){clearInterval(iv);frogModel.rotation.z=0;return;}
+    frogModel.rotation.z=Math.sin(p/350*Math.PI)*.18;
+  },16);
+}
+
+window.toggleSpinal = function(el){
+  el.classList.toggle('on'); S.spinalCut=el.classList.contains('on');
+  showReflexStatus(S.spinalCut?'脊髓横断，中枢被切断':'脊髓恢复正常', S.spinalCut?'danger':'');
+};
+window.toggleReceptor = function(el){
+  el.classList.toggle('on'); S.receptorDestroyed=el.classList.contains('on');
+  showReflexStatus(S.receptorDestroyed?'感受器已破坏，无法接受刺激':'感受器恢复正常', S.receptorDestroyed?'warn':'');
+};
+
+function showReflexStatus(text, type){
+  const p=document.getElementById('reflex-status-pill');
+  p.textContent=text; p.className='status-pill'+(type?' '+type:'');
+}
+
+// 反射弧示意图
+function startReflexDiagramLoop(){
+  const c=document.getElementById('reflex-diagram-canvas');
+  const ctx=c.getContext('2d');
+  function draw(){
+    const w=c.width=c.offsetWidth||320, h=64; c.height=h;
+    ctx.clearRect(0,0,w,h);
+    const n=REFLEX_NAMES.length, sp=w/(n+.5);
+    const positions=REFLEX_NAMES.map((_,i)=>({x:sp*(i+.75),y:h/2}));
+    // 连线
+    for(let i=0;i<n-1;i++){
+      const active=i<=S.reflexStage-1&&S.reflexStage>=0;
+      const cut=(S.spinalCut&&i===1)||(S.receptorDestroyed&&i===0);
+      ctx.strokeStyle=cut?'rgba(224,92,92,.5)':(active?'#00c9a7':'rgba(0,201,167,.2)');
+      ctx.lineWidth=active?2:1;
+      ctx.shadowBlur=active?6:0; ctx.shadowColor='#00c9a7';
+      ctx.beginPath(); ctx.moveTo(positions[i].x+10,h/2); ctx.lineTo(positions[i+1].x-10,h/2); ctx.stroke();
+      // 箭头
+      const ax=positions[i+1].x-10;
+      ctx.fillStyle=ctx.strokeStyle;
+      ctx.beginPath(); ctx.moveTo(ax,h/2-3); ctx.lineTo(ax+5,h/2); ctx.lineTo(ax,h/2+3); ctx.fill();
+      ctx.shadowBlur=0;
+    }
+    // 节点
+    positions.forEach((pos,i)=>{
+      const active=i===S.reflexStage;
+      const damaged=(i===0&&S.receptorDestroyed)||(i===2&&S.spinalCut);
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,8,0,Math.PI*2);
+      ctx.fillStyle=damaged?'rgba(224,92,92,.25)':(active?'rgba(0,201,167,.4)':'rgba(0,201,167,.08)');
+      ctx.fill();
+      ctx.strokeStyle=damaged?'#e05c5c':(active?'#00c9a7':'rgba(0,201,167,.3)');
+      ctx.lineWidth=active?2:1; ctx.shadowBlur=active?10:0; ctx.shadowColor='#00c9a7';
+      ctx.stroke(); ctx.shadowBlur=0;
+      ctx.fillStyle=active?'#00c9a7':(damaged?'#e05c5c':'rgba(0,201,167,.5)');
+      ctx.font=`${Math.min(8,w/50)}px sans-serif`; ctx.textAlign='center';
+      ctx.fillText(REFLEX_NAMES[i],pos.x,pos.y+18);
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/* ═══════════════════════════════════════
+   主界面面板 & 视频
+═══════════════════════════════════════ */
+window.openPanel = function(which, btn){
+  const panel=document.getElementById('side-panel');
+  const isOpen=panel.classList.contains('open');
+  const allPanels=['panel-preview','panel-video'];
+  const isSame=document.getElementById('panel-'+which)?.style.display!=='none' && isOpen;
+  if(isSame){ panel.classList.remove('open'); document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active')); return; }
+  allPanels.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  const target=document.getElementById('panel-'+which);
+  if(target) target.style.display='block';
+  panel.classList.add('open');
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(which==='video') initVideoSteps('heart');
+};
+
+window.switchExpPreview = function(idx, el){
+  document.querySelectorAll('.exp-side-tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.exp-content').forEach((c,i)=>c.classList.toggle('active',i===idx));
+};
+
+const VIDEO_STEPS={
+  heart:['准备斯氏插管与任氏液','制备离体蛙心标本','主动脉插管固定','开始灌流，记录基础心率','依次给药并冲洗'],
+  muscle:['制备腓肠肌标本，固定肌肉两端','连接张力换能器','确定阈强度','从低频开始逐步升高刺激频率','记录各频率下收缩波形'],
+  reflex:['制备脊蛙标本，去除大脑','稀盐酸刺激足部观察屈腿反射','破坏足部皮肤感受器','横断脊髓观察反射消失','直接电刺激坐骨神经观察效应器反应'],
+};
+const VIDEO_SRCS={
+  heart:CFG.V_HEART, muscle:CFG.V_MUSCLE, reflex:CFG.V_REFLEX,
+};
+
+window.switchVideo = function(key, btn){
+  document.querySelectorAll('.video-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const vid=document.getElementById('main-video');
+  vid.pause(); vid.src=VIDEO_SRCS[key]; vid.load();
+  initVideoSteps(key);
+};
+
+function initVideoSteps(key){
+  const steps=VIDEO_STEPS[key]||[];
+  document.getElementById('video-steps').innerHTML=steps.map((s,i)=>
+    `<div class="vks-item"><span class="vks-n">0${i+1}</span><span>${s}</span></div>`
+  ).join('');
+}
+
+/* ═══════════════════════════════════════
+   AI 助手 幽幽瓶
+═══════════════════════════════════════ */
+const KB=[
+  {k:['乙酰胆碱','ACh'],a:'乙酰胆碱通过M受体抑制窦房结，产生负性频率（减慢心率）和负性肌力效应，高浓度可引起一过性停搏。'},
+  {k:['肾上腺素','Epi'],a:'肾上腺素激动β₁受体，产生正性频率（加快心率）和正性肌力（增强收缩）效应，是典型交感神经拟似药。'},
+  {k:['高钙','钙离子','Ca²⁺'],a:'高钙任氏液中Ca²⁺浓度升高，兴奋-收缩耦联增强，心肌收缩幅度明显增大，过高可致钙僵直。'},
+  {k:['低钙'],a:'低钙任氏液使心肌Ca²⁺减少，收缩幅度降低，严重时心肌出现收缩无力甚至停搏。'},
+  {k:['任氏液','Ringer'],a:'任氏液是模拟蛙细胞外液的等渗溶液，含NaCl、KCl、CaCl₂和NaHCO₃，用于维持离体心脏正常功能。'},
+  {k:['单收缩','单个刺激'],a:'单收缩是对一次阈上刺激的响应，包括潜伏期、收缩期和舒张期，总时程约100ms（骨骼肌）。'},
+  {k:['强直','完全强直','不完全强直'],a:'刺激频率升高时，收缩叠加产生不完全强直；频率≥15-20Hz时完全强直，张力持续最大，是骨骼肌最有效做功方式。'},
+  {k:['全或无','动作电位'],a:'单根神经纤维遵循"全或无"定律：阈下无反应，阈上产生幅度固定的动作电位。神经干复合动作电位随刺激强度增大，因募集纤维数不同。'},
+  {k:['反射弧','五要素'],a:'反射弧五要素：感受器→传入神经→神经中枢→传出神经→效应器，任一环节损毁则反射消失，这是反射活动的结构基础。'},
+  {k:['脊髓','中枢','横断'],a:'脊髓是本实验的神经中枢，横断后传入信号无法整合传出，反射消失，验证了中枢的整合作用。'},
+  {k:['传导速度'],a:'传导速度=刺激到记录电极的距离/潜伏期。蛙坐骨神经传导速度约25-40m/s，有髓纤维跳跃传导更快。'},
+  {k:['P波','QRS','T波','ECG'],a:'P波=心房除极；QRS=心室除极（幅度最大）；T波=心室复极。乙酰胆碱延长P-R间期，肾上腺素加快R-R间期。'},
+  {k:['斯氏','插管'],a:'斯氏灌流法将玻璃管插入左主动脉，用任氏液从上方灌流维持心脏活动，可排除神经干扰，专门观察体液因素的影响。'},
+  {k:['为什么用蛙','青蛙'],a:'蛙是经典机能学实验动物：①离体心脏在任氏液中可长时间跳动；②坐骨神经-腓肠肌制备方便；③符合3R替代原则，优先选用低等动物。'},
+  {k:['兴奋收缩耦联'],a:'兴奋-收缩耦联：动作电位→L型Ca²⁺通道→肌质网释放Ca²⁺→肌钙蛋白C结合Ca²⁺→粗细肌丝滑动收缩。'},
+];
+
+function kbMatch(q){
+  const ql=q.toLowerCase();
+  for(const item of KB){ if(item.k.some(k=>ql.includes(k.toLowerCase()))) return item.a; }
+  return null;
+}
+
+window.toggleAI = function(){
+  const panel=document.getElementById('ai-panel');
+  const chevron=document.getElementById('ai-chevron');
+  panel.classList.toggle('open');
+  chevron.textContent=panel.classList.contains('open')?'▼':'▲';
+};
+
+window.sendAI = async function(){
+  const input=document.getElementById('ai-input');
+  const q=input.value.trim(); if(!q) return;
+  input.value='';
+  addMsg(q,'user');
+  if(!CFG.AI_KEY||CFG.AI_KEY==='YOUR_DEEPSEEK_KEY_HERE'){
+    const ans=kbMatch(q)||'我擅长回答：乙酰胆碱、肾上腺素效应、强直收缩、动作电位、反射弧五要素……请问你想了解哪个？🔵';
+    addMsg(ans,'bot'); return;
+  }
+  const el=addMsg('','bot');
+  try{
+    const res=await fetch(CFG.AI_URL,{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${CFG.AI_KEY}`},
+      body:JSON.stringify({model:'deepseek-chat',messages:[
+        {role:'system',content:'你是"幽幽瓶"，青蛙虚拟机能学实验室专属AI导师，精通蛙心灌流、骨骼肌收缩、反射弧分析实验，用专业亲切的语气引导学生思考，回答简洁不超过150字。'},
+        {role:'user',content:q}],stream:true})});
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let txt='';
+    while(true){ const{done,value}=await reader.read(); if(done) break;
+      for(const line of dec.decode(value).split('\n')){ if(!line.startsWith('data:')) continue;
+        const d=line.slice(5).trim(); if(d==='[DONE]') break;
+        try{ txt+=(JSON.parse(d).choices?.[0]?.delta?.content||''); el.textContent=txt;
+          el.parentElement.scrollTop=el.parentElement.scrollHeight; }catch(e){}
+      }
+    }
+  }catch(e){
+    const ans=kbMatch(q)||'网络异常，请检查API Key。';
+    el.textContent=ans;
+  }
+};
+
+function addMsg(text,role){
+  const c=document.getElementById('chat-msgs');
+  const el=document.createElement('div'); el.className=`msg ${role}`; el.textContent=text;
+  c.appendChild(el); c.scrollTop=c.scrollHeight; return el;
+}
+
+/* ═══════════════════════════════════════
+   涟漪效果
+═══════════════════════════════════════ */
+function addRipple(e){
+  const btn=e?.currentTarget; if(!btn) return;
+  const r=document.createElement('span'); r.className='ripple';
+  const rect=btn.getBoundingClientRect();
+  r.style.left=(e.clientX-rect.left)+'px'; r.style.top=(e.clientY-rect.top)+'px';
+  btn.style.position='relative'; btn.style.overflow='hidden';
+  btn.appendChild(r); r.addEventListener('animationend',()=>r.remove());
+}
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('.btn,.nav-tab,.result-exp-tab,.video-tab,.exp-side-tab');
+  if(!btn) return;
+  const r=document.createElement('span'); r.className='ripple';
+  const rect=btn.getBoundingClientRect();
+  r.style.left=(e.clientX-rect.left)+'px'; r.style.top=(e.clientY-rect.top)+'px';
+  btn.appendChild(r); r.addEventListener('animationend',()=>r.remove());
+});
+
+// 初始化视频步骤
+initVideoSteps('heart');
+</script>
+</body>
+</html>
