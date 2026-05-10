@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数字生命 · 虚拟机能学实验平台</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Noto+Sans+SC:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<style>
+:root{
+  --ink:#060d1a;--ink2:#0d1628;--jade:#00c9a7;--jade2:rgba(0,201,167,.15);
+  --gold:#e8c97a;--red:#e05c5c;--orange:#f0924a;--blue:#6b9ef0;--purple:#9b6ef0;
+  --text:#dde8f0;--text2:#7a9bb0;--text3:#3d5570;
+  --glass:rgba(8,14,28,.82);--border:rgba(0,201,167,.16);--border2:rgba(0,201,167,.07);
+  --serif:'Noto Serif SC',serif;--sans:'Noto Sans SC',sans-serif;--mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--ink);color:var(--text);font-family:var(--sans)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#007d68;border-radius:2px}
+
+/* ── 页面系统 ── */
+.page{position:fixed;inset:0;opacity:0;pointer-events:none;transition:opacity .5s var(--ease);z-index:1}
+.page.active{opacity:1;pointer-events:all;z-index:10}
+
+/* ══════════════════════════════
+   开场页
+══════════════════════════════ */
+#pg-intro{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ink)}
+#intro-canvas{position:absolute;inset:0;pointer-events:none}
+#intro-inner{
+  position:relative;z-index:2;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:0;max-width:680px;padding:24px;text-align:center;
+  height:100vh;
+}
+#intro-logo{font-family:var(--serif);font-size:11px;letter-spacing:.45em;color:var(--gold);opacity:0;margin-bottom:32px;animation:fadeIn 1s ease .2s forwards}
+/* 每行文字单独淡入 */
+.intro-line{
+  display:block;font-family:var(--serif);
+  font-size:clamp(13px,1.45vw,17px);line-height:2.4;
+  color:var(--text);letter-spacing:.07em;
+  opacity:0;transform:translateY(10px);
+  animation:lineIn 1.4s var(--ease) forwards;
+}
+.intro-line.gap{margin-top:.6em}
+@keyframes lineIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:.65}}
+/* 进入按钮 — 大、亮、居中、动画 */
+#btn-enter{
+  display:none;
+  font-family:var(--serif);font-size:15px;letter-spacing:.35em;
+  color:var(--ink);background:var(--jade);
+  border:none;padding:18px 64px;
+  cursor:pointer;border-radius:4px;
+  position:relative;overflow:hidden;
+  margin-top:40px;
+  box-shadow:0 0 32px rgba(0,201,167,.5),0 4px 24px rgba(0,0,0,.4);
+  animation:enterPulse 2s ease infinite;
+  transition:transform .25s,box-shadow .25s;
+}
+#btn-enter::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.25) 50%,transparent 100%);
+  transform:translateX(-100%);
+  animation:enterShine 2s ease infinite;
+}
+#btn-enter:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 0 50px rgba(0,201,167,.7),0 8px 32px rgba(0,0,0,.5)}
+@keyframes enterPulse{0%,100%{box-shadow:0 0 24px rgba(0,201,167,.45),0 4px 24px rgba(0,0,0,.4)}50%{box-shadow:0 0 48px rgba(0,201,167,.8),0 4px 32px rgba(0,0,0,.4)}}
+@keyframes enterShine{0%{transform:translateX(-100%)}55%,100%{transform:translateX(200%)}}
+
+/* ══════════════════════════════
+   主界面
+══════════════════════════════ */
+#pg-main{background:var(--ink)}
+#three-main{position:absolute;inset:0}
+#topnav{
+  position:absolute;top:0;left:0;right:0;height:62px;
+  display:flex;align-items:center;justify-content:space-between;padding:0 36px;
+  background:rgba(6,13,26,.72);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border2);z-index:20;
+}
+#nav-logo{display:flex;align-items:center;gap:10px}
+#nav-bar{width:3px;height:18px;background:var(--gold);border-radius:2px;box-shadow:0 0 8px rgba(232,201,122,.5)}
+#nav-title{font-family:var(--serif);font-size:14px;color:var(--gold);letter-spacing:.14em}
+#nav-tabs{display:flex;gap:4px}
+.ntab{font-size:13px;color:var(--text2);background:transparent;border:none;padding:8px 22px;cursor:pointer;border-radius:20px;transition:all .3s var(--ease);font-family:var(--sans);letter-spacing:.04em}
+.ntab:hover{color:var(--text);background:rgba(0,201,167,.08)}
+.ntab.active{color:var(--jade);background:rgba(0,201,167,.12);box-shadow:0 0 14px rgba(0,201,167,.18)}
+#nav-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3)}
+#nav-dot{width:6px;height:6px;background:var(--jade);border-radius:50%;animation:dp 2s ease infinite}
+@keyframes dp{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,201,167,.4)}50%{opacity:.7;box-shadow:0 0 0 4px rgba(0,201,167,0)}}
+
+/* 侧边面板 */
+#side-panel{
+  position:absolute;top:62px;right:0;bottom:0;width:440px;
+  background:var(--glass);backdrop-filter:blur(24px);
+  border-left:1px solid var(--border);
+  transform:translateX(100%);transition:transform .4s var(--ease);
+  z-index:15;display:flex;flex-direction:column;overflow:hidden;
+}
+#side-panel.open{transform:translateX(0)}
+.pnl-body{flex:1;overflow-y:auto;padding:26px 26px 16px}
+.sec-lbl{font-size:9px;color:var(--jade);letter-spacing:.2em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sec-lbl::after{content:'';flex:1;height:1px;background:var(--border2)}
+
+/* 实验预习 */
+.etab-row{display:flex;flex-direction:column;gap:5px;margin-bottom:18px}
+.etab{padding:10px 14px;border:1px solid var(--border2);border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--text2);transition:all .3s;display:flex;align-items:center;gap:10px;background:transparent}
+.etab:hover{border-color:rgba(0,201,167,.35);color:var(--text)}
+.etab.active{border-color:var(--jade);color:var(--jade);background:rgba(0,201,167,.07)}
+.etag{font-family:var(--mono);font-size:9px;color:var(--jade);background:rgba(0,201,167,.1);padding:2px 6px;border-radius:3px}
+.econtent{display:none;animation:fup .3s var(--ease)}
+.econtent.active{display:block}
+@keyframes fup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.ecard{background:rgba(0,201,167,.03);border:1px solid var(--border2);border-radius:10px;padding:18px;margin-bottom:12px}
+.ecard h3{font-family:var(--serif);font-size:14px;color:var(--text);margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid var(--border2)}
+.eh4{font-size:9px;color:var(--jade);letter-spacing:.15em;text-transform:uppercase;margin:12px 0 7px}
+.ep{font-size:12px;color:var(--text2);line-height:1.9;margin-bottom:5px}
+.steps{display:flex;flex-direction:column;gap:7px}
+.si{display:flex;gap:9px;align-items:flex-start}
+.sn{font-family:var(--mono);font-size:9px;min-width:20px;height:20px;background:var(--jade);color:var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.sn.k{background:var(--red)}
+.st{font-size:12px;color:var(--text2);line-height:1.8}
+
+/* AI */
+#ai-bar{border-top:1px solid var(--border2);flex-shrink:0}
+#ai-tog{display:flex;align-items:center;gap:11px;padding:13px 18px;cursor:pointer;background:transparent;border:none;width:100%;transition:background .3s}
+#ai-tog:hover{background:rgba(0,201,167,.05)}
+#ai-av{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 38% 32%,#5b9ef0,#1a3a7a);border:1px solid rgba(91,158,240,.4);display:flex;align-items:center;justify-content:center;animation:avp 3s ease infinite;flex-shrink:0}
+@keyframes avp{0%,100%{box-shadow:0 0 8px rgba(91,158,240,.3)}50%{box-shadow:0 0 20px rgba(91,158,240,.6)}}
+.bub{width:7px;height:7px;background:rgba(255,255,255,.55);border-radius:50%;animation:bf 2s ease infinite}
+@keyframes bf{0%,100%{transform:translateY(0) scale(1);opacity:.55}50%{transform:translateY(-3px) scale(.8);opacity:1}}
+#ai-info{text-align:left}
+#ai-nm{font-size:12px;color:var(--jade);font-weight:500}
+#ai-rl{font-size:9px;color:var(--text3);margin-top:2px}
+#ai-chv{margin-left:auto;color:var(--text3);font-size:11px;transition:transform .3s}
+#ai-pnl{height:0;overflow:hidden;transition:height .4s var(--ease)}
+#ai-pnl.open{height:255px}
+#chat-msgs{height:178px;overflow-y:auto;padding:10px 18px;display:flex;flex-direction:column;gap:7px}
+.msg{max-width:83%;padding:8px 12px;border-radius:9px;font-size:11.5px;line-height:1.7;animation:mi .3s var(--ease)}
+@keyframes mi{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+.msg.bot{background:rgba(0,201,167,.07);border:1px solid rgba(0,201,167,.12);color:var(--text);align-self:flex-start;border-radius:2px 9px 9px 9px}
+.msg.user{background:rgba(107,158,240,.1);border:1px solid rgba(107,158,240,.18);color:var(--text);align-self:flex-end;border-radius:9px 2px 9px 9px}
+#ai-inp-row{display:flex;gap:7px;padding:9px 12px;border-top:1px solid var(--border2)}
+#ai-inp{flex:1;background:rgba(0,201,167,.04);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-size:11.5px;padding:6px 10px;font-family:var(--sans);outline:none;transition:border-color .3s}
+#ai-inp:focus{border-color:var(--jade)}
+#ai-snd{padding:6px 14px;background:rgba(0,201,167,.08);border:1px solid var(--jade);color:var(--jade);border-radius:5px;cursor:pointer;font-size:11.5px;transition:all .3s;font-family:var(--sans)}
+#ai-snd:hover{background:var(--jade);color:var(--ink)}
+
+/* 操作讲解 */
+.vtabs{display:flex;gap:5px;margin-bottom:15px;flex-wrap:wrap}
+.vtab{padding:6px 13px;border:1px solid var(--border2);border-radius:4px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .3s;background:transparent;font-family:var(--sans)}
+.vtab:hover{border-color:rgba(0,201,167,.35);color:var(--text)}
+.vtab.active{border-color:var(--jade);color:var(--jade);background:rgba(0,201,167,.07)}
+.vwrap{border-radius:10px;overflow:hidden;background:#000;margin-bottom:15px;aspect-ratio:16/9}
+.vwrap video{width:100%;height:100%;object-fit:contain}
+.vstep{display:flex;gap:9px;align-items:center;padding:9px 13px;background:rgba(0,201,167,.05);border:1px solid var(--border2);border-radius:7px;font-size:11.5px;color:var(--text2);margin-bottom:6px}
+.vsn{font-family:var(--mono);font-size:9px;color:var(--jade);min-width:16px}
+
+/* ══════════════════════════════
+   结果观察
+══════════════════════════════ */
+#pg-result{display:flex;flex-direction:column}
+#res-top{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:rgba(6,13,26,.8);backdrop-filter:blur(20px);border-bottom:1px solid var(--border2);flex-shrink:0}
+#res-back{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;background:transparent;border:none;transition:color .3s;font-family:var(--sans)}
+#res-back:hover{color:var(--jade)}
+#res-exptabs{display:flex;gap:5px}
+.retab{padding:7px 18px;border:1px solid var(--border2);border-radius:18px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .3s;background:transparent;font-family:var(--sans)}
+.retab:hover{border-color:rgba(0,201,167,.35);color:var(--text)}
+.retab.active{border-color:var(--jade);color:var(--jade);background:rgba(0,201,167,.1);box-shadow:0 0 14px rgba(0,201,167,.18)}
+#res-body{flex:1;display:flex;overflow:hidden;position:relative}
+.rpane{display:none;width:100%;height:100%}
+.rpane.active{display:flex}
+
+/* 心脏实验布局 */
+#rp-heart{flex-direction:row}
+#heart-vp{flex:1;position:relative;min-width:0}
+#heart-canvas{width:100%;height:100%;display:block}
+#heart-ctrl{width:420px;flex-shrink:0;background:var(--glass);backdrop-filter:blur(22px);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.ctrl-scroll{flex:1;overflow-y:auto;padding:22px 22px 14px}
+.csec{margin-bottom:20px}
+.csec-ttl{font-size:9px;color:var(--jade);letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.csec-ttl::after{content:'';flex:1;height:1px;background:var(--border2)}
+
+/* HUD */
+.bpm-row{display:flex;align-items:baseline;gap:7px;margin-bottom:8px}
+.bpm-val{font-family:var(--mono);font-size:48px;color:var(--jade);line-height:1;text-shadow:0 0 18px rgba(0,201,167,.45)}
+.bpm-unit{font-size:12px;color:var(--text3);font-family:var(--mono)}
+.hbar-lbl{font-size:10px;color:var(--text3);margin-bottom:4px;display:flex;justify-content:space-between}
+.hbar{height:4px;background:rgba(0,201,167,.1);border-radius:2px;overflow:hidden;margin-bottom:10px}
+.hbar-fill{height:100%;background:linear-gradient(90deg,#007d68,var(--jade));border-radius:2px;transition:width .4s var(--ease)}
+.ecg-wrap{border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:rgba(2,6,16,.95);margin-bottom:4px}
+.ecg-hdr{font-size:9px;color:var(--text3);padding:5px 9px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;letter-spacing:.07em}
+#ecg-c{width:100%;display:block}
+
+/* 药物说明区 */
+#drug-explain{background:rgba(0,201,167,.04);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;margin-top:8px;font-size:11.5px;color:var(--text2);line-height:1.8;min-height:60px;transition:all .4s}
+#drug-explain strong{color:var(--jade)}
+
+/* 按钮 */
+.crow{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:7px}
+.btn{padding:7px 14px;border:1px solid var(--border);border-radius:6px;background:rgba(0,201,167,.04);color:var(--text);font-size:11.5px;cursor:pointer;transition:all .3s var(--ease);font-family:var(--sans);position:relative;overflow:hidden;white-space:nowrap}
+.btn:hover{border-color:var(--jade);color:var(--jade);background:rgba(0,201,167,.09);transform:translateY(-1px)}
+.btn:active{transform:scale(.97)}
+.btn.on{background:rgba(0,201,167,.14);border-color:var(--jade);color:var(--jade)}
+.btn-ach{border-color:rgba(155,110,240,.4);color:var(--text2)}.btn-ach:hover{border-color:var(--purple);color:var(--purple);background:rgba(155,110,240,.08)}
+.btn-epi{border-color:rgba(240,146,74,.4);color:var(--text2)}.btn-epi:hover{border-color:var(--orange);color:var(--orange);background:rgba(240,146,74,.08)}
+.btn-highca{border-color:rgba(232,201,122,.4);color:var(--text2)}.btn-highca:hover{border-color:var(--gold);color:var(--gold);background:rgba(232,201,122,.08)}
+.btn-lowca{border-color:rgba(107,158,240,.4);color:var(--text2)}.btn-lowca:hover{border-color:var(--blue);color:var(--blue);background:rgba(107,158,240,.08)}
+.btn-nacl{border-color:rgba(100,200,100,.4);color:var(--text2)}.btn-nacl:hover{border-color:#64c864;color:#64c864;background:rgba(100,200,100,.08)}
+.btn-kcl{border-color:rgba(240,80,80,.4);color:var(--text2)}.btn-kcl:hover{border-color:var(--red);color:var(--red);background:rgba(240,80,80,.08)}
+.btn-dang:hover{border-color:var(--red);color:var(--red);background:rgba(224,92,92,.07)}
+
+.pill{display:inline-block;padding:3px 11px;border-radius:11px;font-size:10px;font-family:var(--mono);border:1px solid var(--jade);color:var(--jade);background:rgba(0,201,167,.07);margin-top:3px}
+.pill.warn{border-color:var(--orange);color:var(--orange);background:rgba(240,146,74,.07)}
+.pill.danger{border-color:var(--red);color:var(--red);background:rgba(224,92,92,.07)}
+
+.sldr-wrap{margin-bottom:12px}
+.sldr-hdr{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:6px}
+.sldr-val{color:var(--jade);font-family:var(--mono)}
+input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:rgba(0,201,167,.14);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--jade);border-radius:50%;box-shadow:0 0 7px rgba(0,201,167,.5)}
+
+/* 骨骼肌 / 反射弧 SVG面板 */
+#rp-muscle,#rp-reflex{flex-direction:row}
+.svg-vp{flex:1;position:relative;background:rgba(4,10,22,.95);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.svg-vp svg{max-width:100%;max-height:100%}
+.anat-ctrl{width:400px;flex-shrink:0;background:var(--glass);backdrop-filter:blur(22px);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+
+/* 波形 */
+.wave-wrap{border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:rgba(2,6,16,.95);margin-bottom:12px}
+.wave-hdr{font-size:9px;color:var(--text3);padding:5px 9px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;letter-spacing:.07em}
+.wave-c{width:100%;display:block}
+
+.tog-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;padding:6px 0}
+.tog-lbl{font-size:12px;color:var(--text2)}
+.tog{width:38px;height:19px;border-radius:10px;background:rgba(255,255,255,.07);border:1px solid var(--border);cursor:pointer;position:relative;transition:background .3s;flex-shrink:0}
+.tog.on{background:rgba(0,201,167,.22);border-color:var(--jade)}
+.tog::after{content:'';position:absolute;left:3px;top:3px;width:11px;height:11px;background:var(--text3);border-radius:50%;transition:all .3s}
+.tog.on::after{left:22px;background:var(--jade)}
+
+.stage-txt{font-size:11px;color:var(--text2);line-height:2;min-height:40px;margin-top:7px}
+
+/* 涟漪 */
+@keyframes rpl{to{transform:scale(4);opacity:0}}
+.rpl{position:absolute;border-radius:50%;background:rgba(0,201,167,.22);width:28px;height:28px;margin:-14px;animation:rpl .6s linear;pointer-events:none}
+
+@media(max-width:768px){
+  #side-panel{width:100%;top:auto;bottom:0;height:62vh;transform:translateY(100%);border-left:none;border-top:1px solid var(--border)}
+  #side-panel.open{transform:translateY(0)}
+  .rpane.active{flex-direction:column}
+  #heart-ctrl,.anat-ctrl{width:100%;height:48vh;border-left:none;border-top:1px solid var(--border)}
+}
+
+/* 音乐控制按钮 */
+#music-btn{
+  position:fixed;bottom:24px;right:24px;z-index:999;
+  width:42px;height:42px;border-radius:50%;
+  background:rgba(0,201,167,.12);border:1px solid var(--jade);
+  color:var(--jade);font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .3s;backdrop-filter:blur(10px);
+  box-shadow:0 0 16px rgba(0,201,167,.2);
+}
+#music-btn:hover{background:rgba(0,201,167,.25);box-shadow:0 0 28px rgba(0,201,167,.4);transform:scale(1.1)}
+</style>
+</head>
+<body>
+
+<!-- ══ 开场页 ══ -->
+<div class="page active" id="pg-intro">
+  <canvas id="intro-canvas"></canvas>
+  <div id="intro-inner">
+    <div id="intro-logo">数字生命 · 虚拟机能学实验平台</div>
+    <div id="intro-lines"></div>
+    <button id="btn-enter" onclick="enterLab()">进 入 实 验 室 →</button>
+  </div>
+</div>
+
+<!-- ══ 主界面 ══ -->
+<div class="page" id="pg-main">
+  <canvas id="three-main"></canvas>
+  <div id="topnav">
+    <div id="nav-logo"><div id="nav-bar"></div><div id="nav-title">数字生命</div></div>
+    <div id="nav-tabs">
+      <button class="ntab" onclick="openPanel('preview',this)">实验预习</button>
+      <button class="ntab" onclick="openPanel('video',this)">操作讲解</button>
+      <button class="ntab" onclick="goResult()">结果观察</button>
+    </div>
+    <div id="nav-status"><div id="nav-dot"></div>系统运行中</div>
+  </div>
+  <div id="side-panel">
+    <!-- 实验预习 -->
+    <div class="pnl-body" id="pnl-preview" style="display:none">
+      <div class="sec-lbl">选择实验</div>
+      <div class="etab-row">
+        <div class="etab active" onclick="swPrev(0,this)"><span class="etag">01</span>蛙心灌流</div>
+        <div class="etab" onclick="swPrev(1,this)"><span class="etag">02</span>骨骼肌收缩</div>
+        <div class="etab" onclick="swPrev(2,this)"><span class="etag">03</span>反射弧分析</div>
+      </div>
+      <div class="econtent active" id="ec0">
+        <div class="ecard"><h3>蛙心灌流实验</h3>
+          <div class="eh4">研究目的</div><p class="ep">观察药物和离子变化对离体蛙心收缩的影响，理解神经体液调节机制。</p>
+          <div class="eh4">实验原理</div><p class="ep">蛙心具自律性，斯氏灌流维持活动。β受体激动剂肾上腺素产生正性肌力与频率效应；M受体激动剂乙酰胆碱抑制窦房结；Ca²⁺是兴奋-收缩耦联关键离子；K⁺升高抑制心肌；Na⁺过高引起停搏。</p>
+          <div class="eh4">操作步骤</div>
+          <div class="steps">
+            <div class="si"><div class="sn">1</div><div class="st">暴露心脏，识别静脉窦、心房、心室</div></div>
+            <div class="si"><div class="sn k">2</div><div class="st"><b>关键：</b>主动脉插管，任氏液灌流，稳定5min记录基础值</div></div>
+            <div class="si"><div class="sn">3</div><div class="st">依次施药：乙酰胆碱→冲洗→肾上腺素→冲洗→高Ca²⁺→冲洗→低Ca²⁺→冲洗→高K⁺→冲洗→高Na⁺</div></div>
+            <div class="si"><div class="sn">4</div><div class="st">每次给药观察心率与幅度变化，出现明显效应后立即冲洗</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="econtent" id="ec1">
+        <div class="ecard"><h3>骨骼肌收缩实验</h3>
+          <div class="eh4">研究目的</div><p class="ep">观察不同频率和强度刺激对骨骼肌收缩形式的影响。</p>
+          <div class="eh4">实验原理</div><p class="ep">骨骼肌单根纤维遵循全或无定律。频率低→单收缩；8–15Hz→不完全强直；≥15Hz→完全强直。兴奋-收缩耦联依赖Ca²⁺从肌质网释放与肌钙蛋白结合。</p>
+          <div class="eh4">操作步骤</div>
+          <div class="steps">
+            <div class="si"><div class="sn">1</div><div class="st">制备腓肠肌标本，连接张力换能器</div></div>
+            <div class="si"><div class="sn k">2</div><div class="st"><b>关键：</b>确定阈强度，从最小有效刺激开始</div></div>
+            <div class="si"><div class="sn">3</div><div class="st">频率：1→5→10→20→50Hz，记录各收缩图形</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="econtent" id="ec2">
+        <div class="ecard"><h3>反射弧分析实验</h3>
+          <div class="eh4">研究目的</div><p class="ep">验证反射弧五环节完整性对反射活动的必要性。</p>
+          <div class="eh4">实验原理</div><p class="ep">感受器→传入神经→神经中枢→传出神经→效应器，任一环节损伤则反射消失。</p>
+          <div class="eh4">操作步骤</div>
+          <div class="steps">
+            <div class="si"><div class="sn k">1</div><div class="st"><b>关键：</b>制备脊蛙——去除大脑，保留脊髓</div></div>
+            <div class="si"><div class="sn">2</div><div class="st">稀盐酸刺激足部，观察屈腿反射，水洗后继续</div></div>
+            <div class="si"><div class="sn">3</div><div class="st">依次：破坏感受器→横断脊髓→直接刺激传出神经，分别观察</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 操作讲解 -->
+    <div class="pnl-body" id="pnl-video" style="display:none">
+      <div class="sec-lbl">实验视频</div>
+      <div class="vtabs">
+        <button class="vtab active" onclick="swVid('heart',this)">蛙心灌流</button>
+        <button class="vtab" onclick="swVid('muscle',this)">骨骼肌收缩</button>
+        <button class="vtab" onclick="swVid('reflex',this)">反射弧分析</button>
+      </div>
+      <div class="vwrap"><video id="main-vid" controls preload="metadata"><source src="https://frog.oss-cn-shanghai.aliyuncs.com/29557264358-1-192.mp4" type="video/mp4"></video></div>
+      <div class="sec-lbl">操作要点</div>
+      <div id="vsteps"></div>
+    </div>
+    <!-- AI -->
+    <div id="ai-bar">
+      <button id="ai-tog" onclick="togAI()">
+        <div id="ai-av"><div class="bub"></div></div>
+        <div id="ai-info"><div id="ai-nm">幽幽瓶</div><div id="ai-rl">机能学 AI 导师</div></div>
+        <div id="ai-chv">▲</div>
+      </button>
+      <div id="ai-pnl">
+        <div id="chat-msgs"><div class="msg bot">你好！我是幽幽瓶 🔵 有关蛙心灌流、骨骼肌、反射弧的问题都可以问我~</div></div>
+        <div id="ai-inp-row">
+          <input type="text" id="ai-inp" placeholder="问幽幽瓶..." onkeydown="if(event.key==='Enter')sendAI()">
+          <button id="ai-snd" onclick="sendAI()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 结果观察 ══ -->
+<div class="page" id="pg-result">
+  <div id="res-top">
+    <button id="res-back" onclick="backMain()">← 返回</button>
+    <div id="res-exptabs">
+      <button class="retab active" onclick="swResExp(0,this)">蛙心灌流</button>
+      <button class="retab" onclick="swResExp(1,this)">骨骼肌收缩</button>
+      <button class="retab" onclick="swResExp(2,this)">反射弧分析</button>
+    </div>
+    <div style="width:60px"></div>
+  </div>
+  <div id="res-body">
+
+    <!-- A：蛙心灌流 -->
+    <div class="rpane active" id="rp-heart">
+      <div id="heart-vp"><canvas id="heart-canvas"></canvas></div>
+      <div id="heart-ctrl">
+        <div class="ctrl-scroll">
+          <div class="csec">
+            <div class="csec-ttl">实时数据</div>
+            <div class="bpm-row"><span class="bpm-val" id="d-bpm">72</span><span class="bpm-unit">bpm</span></div>
+            <div class="hbar-lbl"><span>收缩强度</span><span id="d-amp">80%</span></div>
+            <div class="hbar"><div class="hbar-fill" id="amp-fill" style="width:80%"></div></div>
+            <div class="ecg-wrap">
+              <div class="ecg-hdr"><span>心电图 ECG</span><span id="ecg-lbl" style="color:var(--jade)">正常窦性心律</span></div>
+              <canvas id="ecg-c" height="70"></canvas>
+            </div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">灌流控制</div>
+            <div class="crow">
+              <button class="btn" id="btn-perf" onclick="togPerf()">▶ 开始灌流</button>
+              <button class="btn btn-dang" onclick="washHeart()">🚿 冲洗恢复</button>
+            </div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">药物施加</div>
+            <div class="crow">
+              <button class="btn btn-ach" onclick="applyDrug('ach')">乙酰胆碱</button>
+              <button class="btn btn-epi" onclick="applyDrug('epi')">肾上腺素</button>
+            </div>
+            <div class="crow">
+              <button class="btn btn-highca" onclick="applyDrug('highca')">高钙任氏液</button>
+              <button class="btn btn-lowca" onclick="applyDrug('lowca')">低钙任氏液</button>
+            </div>
+            <div class="crow">
+              <button class="btn btn-kcl" onclick="applyDrug('kcl')">高钾(KCl)</button>
+              <button class="btn btn-nacl" onclick="applyDrug('nacl')">高钠(NaCl)</button>
+            </div>
+            <div id="drug-status-pill" class="pill" style="display:none">正常</div>
+            <div id="drug-explain">💡 点击药物按钮，观察心脏变化并查看药理说明。</div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">心率调节</div>
+            <div class="sldr-wrap">
+              <div class="sldr-hdr"><span>基础心率</span><span class="sldr-val"><span id="bpm-sv">72</span> bpm</span></div>
+              <input type="range" min="40" max="120" value="72" oninput="setBaseBPM(this.value)">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B：骨骼肌SVG -->
+    <div class="rpane" id="rp-muscle">
+      <div class="svg-vp" id="muscle-svg-vp">
+        <!-- 解剖学骨骼肌SVG -->
+        <svg id="muscle-svg" viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;max-height:100%">
+          <defs>
+            <radialGradient id="mg1" cx="50%" cy="40%"><stop offset="0%" stop-color="#c0614a"/><stop offset="100%" stop-color="#7a2a18"/></radialGradient>
+            <radialGradient id="mg2" cx="50%" cy="40%"><stop offset="0%" stop-color="#d4724e"/><stop offset="100%" stop-color="#8b3520"/></radialGradient>
+            <linearGradient id="boneG" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#d4c9a0"/><stop offset="50%" stop-color="#f0e8c0"/><stop offset="100%" stop-color="#c8bc94"/></linearGradient>
+            <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <linearGradient id="nerveG" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f5e050"/><stop offset="100%" stop-color="#e8c030"/></linearGradient>
+          </defs>
+          <!-- 背景 -->
+          <rect width="700" height="520" fill="#06101e"/>
+          <!-- 标题 -->
+          <text x="350" y="30" text-anchor="middle" fill="#00c9a7" font-size="14" font-family="Noto Sans SC" letter-spacing="3">腓 肠 肌 收 缩 实 验 · 解 剖 示 意</text>
+          <!-- 股骨（上端骨骼） -->
+          <ellipse cx="350" cy="80" rx="28" ry="16" fill="url(#boneG)" stroke="#b0a070" stroke-width="1"/>
+          <rect x="322" y="80" width="56" height="120" rx="8" fill="url(#boneG)" stroke="#b0a070" stroke-width="1"/>
+          <ellipse cx="350" cy="200" rx="32" ry="18" fill="url(#boneG)" stroke="#b0a070" stroke-width="1"/>
+          <text x="395" y="145" fill="#c8bc94" font-size="11" font-family="Noto Sans SC">股骨</text>
+          <line x1="392" y1="143" x2="378" y2="140" stroke="#c8bc94" stroke-width="0.8"/>
+          <!-- 膝关节 -->
+          <ellipse cx="350" cy="210" rx="42" ry="22" fill="#b89860" stroke="#9a7a40" stroke-width="1.5"/>
+          <ellipse cx="350" cy="210" rx="32" ry="15" fill="#d4b878" stroke="#b09050" stroke-width="1"/>
+          <text x="405" y="215" fill="#d4b878" font-size="11" font-family="Noto Sans SC">膝关节</text>
+          <line x1="402" y1="213" x2="392" y2="212" stroke="#d4b878" stroke-width="0.8"/>
+          <!-- 腓肠肌内侧头 -->
+          <path id="gastro-med" d="M330,225 C310,240 295,280 298,340 C300,380 318,400 340,410 L350,415 L350,230 Z" fill="url(#mg1)" stroke="#5a1a08" stroke-width="1.5"/>
+          <!-- 腓肠肌外侧头 -->
+          <path id="gastro-lat" d="M370,225 C390,240 405,280 402,340 C400,380 382,400 360,410 L350,415 L350,230 Z" fill="url(#mg2)" stroke="#5a1a08" stroke-width="1.5"/>
+          <!-- 肌肉纹理线 -->
+          <g stroke="#a04030" stroke-width="0.6" opacity="0.6">
+            <path d="M320,250 C315,280 312,320 315,360"/>
+            <path d="M308,265 C304,295 302,335 306,370"/>
+            <path d="M380,250 C385,280 388,320 385,360"/>
+            <path d="M392,265 C396,295 398,335 394,370"/>
+            <path d="M335,230 C330,260 328,300 332,350"/>
+            <path d="M365,230 C370,260 372,300 368,350"/>
+          </g>
+          <!-- 跟腱 -->
+          <path d="M330,408 C330,420 338,440 350,450 C362,440 370,420 370,408 L350,415 Z" fill="#e8d4b0" stroke="#c0a878" stroke-width="1.5"/>
+          <text x="395" y="435" fill="#e8d4b0" font-size="11" font-family="Noto Sans SC">跟腱</text>
+          <line x1="392" y1="433" x2="372" y2="432" stroke="#e8d4b0" stroke-width="0.8"/>
+          <!-- 跟骨 -->
+          <ellipse cx="350" cy="458" rx="25" ry="14" fill="url(#boneG)" stroke="#b0a070" stroke-width="1.5"/>
+          <rect x="325" y="458" width="50" height="30" rx="8" fill="url(#boneG)" stroke="#b0a070" stroke-width="1"/>
+          <text x="395" y="475" fill="#c8bc94" font-size="11" font-family="Noto Sans SC">跟骨</text>
+          <line x1="392" y1="473" x2="375" y2="470" stroke="#c8bc94" stroke-width="0.8"/>
+          <!-- 胫骨（前方隐约） -->
+          <rect x="355" y="225" width="20" height="175" rx="6" fill="#c8bc94" stroke="#a09060" stroke-width="1" opacity="0.5"/>
+          <text x="260" y="315" fill="#c8bc94" font-size="11" font-family="Noto Sans SC">胫骨</text>
+          <line x1="285" y1="313" x2="355" y2="312" stroke="#c8bc94" stroke-width="0.8" stroke-dasharray="3,2"/>
+          <!-- 坐骨神经 -->
+          <path id="nerve-path" d="M350,80 C380,100 390,140 385,180 C382,200 375,215 360,225" stroke="url(#nerveG)" stroke-width="4" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+          <text x="415" y="160" fill="#f5e050" font-size="11" font-family="Noto Sans SC">坐骨神经</text>
+          <line x1="412" y1="158" x2="390" y2="158" stroke="#f5e050" stroke-width="0.8"/>
+          <!-- 刺激电极 -->
+          <g id="electrode-grp">
+            <rect x="372" y="188" width="24" height="10" rx="3" fill="#404040" stroke="#888" stroke-width="1"/>
+            <rect x="374" y="183" width="4" height="8" rx="1" fill="#c0c0c0"/>
+            <rect x="388" y="183" width="4" height="8" rx="1" fill="#c0c0c0"/>
+            <text x="420" y="198" fill="#aaa" font-size="10" font-family="Noto Sans SC">刺激电极</text>
+          </g>
+          <!-- 张力换能器连接线 -->
+          <line x1="350" y1="458" x2="350" y2="505" stroke="#888" stroke-width="1.5" stroke-dasharray="4,2"/>
+          <rect x="320" y="500" width="60" height="18" rx="4" fill="#1a2a3a" stroke="#4a6a8a" stroke-width="1"/>
+          <text x="350" y="513" text-anchor="middle" fill="#6a9aba" font-size="9" font-family="Noto Sans SC">张力换能器</text>
+          <!-- 收缩状态标注 -->
+          <text id="muscle-state-svg" x="350" y="510" text-anchor="middle" fill="#00c9a7" font-size="12" font-family="Noto Sans SC"></text>
+          <!-- 刺激闪光 -->
+          <circle id="stim-flash" cx="384" cy="193" r="0" fill="#ffff00" opacity="0"/>
+          <!-- 标题标注 -->
+          <text x="260" y="320" fill="#d4724e" font-size="11" font-family="Noto Sans SC">腓肠肌</text>
+          <line x1="285" y1="318" x2="308" y2="310" stroke="#d4724e" stroke-width="0.8"/>
+        </svg>
+      </div>
+      <div class="anat-ctrl">
+        <div class="ctrl-scroll">
+          <div class="csec">
+            <div class="csec-ttl">实时波形</div>
+            <div class="wave-wrap">
+              <div class="wave-hdr"><span>肌张力曲线</span><span id="ms-lbl" style="color:var(--jade)">静息</span></div>
+              <canvas id="tens-c" height="70" class="wave-c"></canvas>
+            </div>
+            <div id="ms-pill" class="pill">静息状态</div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">刺激控制</div>
+            <div class="crow">
+              <button class="btn" onclick="singleStim()">⚡ 单次刺激</button>
+              <button class="btn" id="btn-cont" onclick="togCont()">🔄 连续刺激</button>
+              <button class="btn btn-dang" onclick="stopMuscle()">■ 停止</button>
+            </div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">参数调节</div>
+            <div class="sldr-wrap">
+              <div class="sldr-hdr"><span>刺激频率</span><span class="sldr-val"><span id="freq-sv">10</span> Hz</span></div>
+              <input type="range" min="1" max="50" value="10" oninput="setFreq(this.value)">
+            </div>
+            <div class="sldr-wrap">
+              <div class="sldr-hdr"><span>刺激强度</span><span class="sldr-val"><span id="int-sv">60</span>%</span></div>
+              <input type="range" min="0" max="100" value="60" oninput="setInt(this.value)">
+            </div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">收缩说明</div>
+            <div id="muscle-explain" style="font-size:11.5px;color:var(--text2);line-height:1.9;background:rgba(0,201,167,.04);border:1px solid var(--border2);border-radius:8px;padding:12px">
+              💡 调节频率观察收缩形式变化：<br>
+              <b style="color:var(--jade)">1–7 Hz</b>：单收缩，每次完全舒张<br>
+              <b style="color:var(--orange)">8–14 Hz</b>：不完全强直，收缩叠加<br>
+              <b style="color:var(--red)">≥15 Hz</b>：完全强直，持续最大张力
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C：反射弧SVG 解剖学教科书风格 -->
+    <div class="rpane" id="rp-reflex">
+      <div class="svg-vp" id="reflex-svg-vp">
+        <svg id="reflex-svg" viewBox="0 0 760 500" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;max-height:100%">
+          <defs>
+            <!-- 皮肤渐变 -->
+            <linearGradient id="skinG" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#a8d4a0"/><stop offset="40%" stop-color="#7ab878"/><stop offset="100%" stop-color="#4a8a48"/>
+            </linearGradient>
+            <!-- 脊髓横截面渐变 -->
+            <radialGradient id="spinalG" cx="50%" cy="50%">
+              <stop offset="0%" stop-color="#f5d0e8"/><stop offset="60%" stop-color="#e0a0cc"/><stop offset="100%" stop-color="#b06090"/>
+            </radialGradient>
+            <!-- 骨骼渐变 -->
+            <linearGradient id="boneG2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#f0e8c8"/><stop offset="100%" stop-color="#c8b870"/>
+            </linearGradient>
+            <!-- 肌肉渐变 -->
+            <radialGradient id="muscG" cx="40%" cy="40%">
+              <stop offset="0%" stop-color="#d06050"/><stop offset="100%" stop-color="#802010"/>
+            </radialGradient>
+            <!-- 神经髓鞘渐变 -->
+            <linearGradient id="myelin" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#f8f0d0"/><stop offset="100%" stop-color="#d4c090"/>
+            </linearGradient>
+            <!-- 发光滤镜 -->
+            <filter id="glow2" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="4" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="softglow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <!-- 箭头 -->
+            <marker id="arr" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0,9 3.5,0 7" fill="#00c9a7"/>
+            </marker>
+            <marker id="arr-eff" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0,9 3.5,0 7" fill="#f0924a"/>
+            </marker>
+            <marker id="arr-hi" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0,9 3.5,0 7" fill="#ffff44"/>
+            </marker>
+          </defs>
+
+          <!-- 深色背景 + 细网格 -->
+          <rect width="760" height="500" fill="#050e1c"/>
+          <line x1="0" y1="0" x2="760" y2="0" stroke="rgba(0,201,167,.06)" stroke-width="1"/>
+          <line x1="0" y1="499" x2="760" y2="499" stroke="rgba(0,201,167,.06)" stroke-width="1"/>
+
+          <!-- 标题 -->
+          <text x="380" y="26" text-anchor="middle" fill="#00c9a7" font-size="13" font-family="Noto Sans SC" letter-spacing="4" opacity=".9">反 射 弧 五 环 节 · 解 剖 示 意</text>
+          <line x1="120" y1="33" x2="640" y2="33" stroke="rgba(0,201,167,.2)" stroke-width=".5"/>
+
+          <!-- ══ 区域一：足部皮肤感受器（左侧） ══ -->
+          <!-- 皮肤层次 -->
+          <rect x="30" y="340" width="130" height="60" rx="6" fill="#4a7a48" stroke="#2a5a28" stroke-width="1.2"/>
+          <rect x="30" y="340" width="130" height="18" rx="6" fill="#7ab878" stroke="none"/>
+          <rect x="30" y="352" width="130" height="8" fill="#5a9858" stroke="none"/>
+          <!-- 表皮纹理 -->
+          <path d="M30,358 Q60,354 90,358 Q120,362 160,358" stroke="#8acc88" stroke-width=".8" fill="none" opacity=".5"/>
+          <path d="M30,363 Q55,359 85,363 Q115,367 160,363" stroke="#8acc88" stroke-width=".6" fill="none" opacity=".4"/>
+          <!-- 游离神经末梢（感受器细节） -->
+          <g id="receptor-detail">
+            <path d="M75,358 C72,348 70,338 68,328 C66,318 70,310 75,308" stroke="#ffaa44" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <path d="M95,358 C92,346 90,334 88,322 C86,312 89,304 94,302" stroke="#ffaa44" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <path d="M115,358 C113,347 112,336 111,325 C110,315 113,307 118,305" stroke="#ffaa44" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <!-- 末梢膨大 -->
+            <circle cx="68" cy="308" r="4" fill="#ffcc44" stroke="#ff8800" stroke-width="1" filter="url(#softglow)"/>
+            <circle cx="94" cy="302" r="4" fill="#ffcc44" stroke="#ff8800" stroke-width="1" filter="url(#softglow)"/>
+            <circle cx="118" cy="305" r="4" fill="#ffcc44" stroke="#ff8800" stroke-width="1" filter="url(#softglow)"/>
+          </g>
+          <!-- 感受器标注 -->
+          <text x="95" y="378" text-anchor="middle" fill="#8acc88" font-size="10" font-family="Noto Sans SC">皮肤</text>
+          <text x="95" y="390" text-anchor="middle" fill="#ffcc44" font-size="9" font-family="Noto Sans SC">游离神经末梢</text>
+          <!-- 感受器节点 -->
+          <circle id="receptor-node" cx="95" cy="300" r="14" fill="rgba(0,255,136,.12)" stroke="#00ff88" stroke-width="2" filter="url(#glow2)" opacity=".6"/>
+          <text x="95" y="270" text-anchor="middle" fill="#00ff88" font-size="12" font-family="Noto Sans SC" font-weight="bold">① 感受器</text>
+          <text x="95" y="284" text-anchor="middle" fill="#00ff88" font-size="9" font-family="Noto Sans SC" opacity=".7">刺激换能</text>
+          <!-- HCl酸液 -->
+          <circle id="acid-drop" cx="95" cy="345" r="6" fill="#e8ff00" opacity="0" filter="url(#softglow)"/>
+          <text id="acid-txt" x="95" y="415" text-anchor="middle" fill="#e8ff00" font-size="9" font-family="Noto Sans SC" opacity="0">0.5% HCl</text>
+
+          <!-- ══ 区域二：传入神经（坐骨神经上行支） ══ -->
+          <!-- 神经束外膜 -->
+          <path id="afferent-nerve" d="M155,310 C185,295 215,280 240,265 C255,256 265,248 272,240"
+            stroke="#00c9a7" stroke-width="5" fill="none" stroke-linecap="round" opacity=".45" marker-end="url(#arr)"/>
+          <!-- 髓鞘细节 -->
+          <path d="M158,308 C188,293 218,278 243,263 C258,254 268,246 274,238"
+            stroke="#a0f0e0" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".3" stroke-dasharray="8,4"/>
+          <!-- 郎飞结 -->
+          <circle cx="185" cy="296" r="3" fill="#00ffcc" opacity=".5"/>
+          <circle cx="215" cy="281" r="3" fill="#00ffcc" opacity=".5"/>
+          <circle cx="245" cy="263" r="3" fill="#00ffcc" opacity=".5"/>
+          <text x="175" y="335" text-anchor="middle" fill="#00c9a7" font-size="11" font-family="Noto Sans SC">② 传入神经</text>
+          <text x="175" y="348" text-anchor="middle" fill="#00c9a7" font-size="9" font-family="Noto Sans SC" opacity=".6">坐骨神经感觉支</text>
+          <!-- 传导方向 -->
+          <text x="195" y="270" text-anchor="middle" fill="#00c9a7" font-size="8" font-family="Noto Sans SC" opacity=".5">→ 向心传导</text>
+
+          <!-- ══ 区域三：脊髓横截面（中枢） ══ -->
+          <!-- 脊椎骨 -->
+          <ellipse cx="350" cy="200" rx="52" ry="58" fill="#d4c888" stroke="#a09050" stroke-width="2"/>
+          <ellipse cx="350" cy="200" rx="38" ry="44" fill="#f0e8c0" stroke="#b0a060" stroke-width="1.5"/>
+          <!-- 硬脊膜 -->
+          <ellipse cx="350" cy="200" rx="28" ry="32" fill="none" stroke="#c0a0b0" stroke-width="1.5" stroke-dasharray="4,2" opacity=".6"/>
+          <!-- 脊髓横截面主体 -->
+          <ellipse id="spinal-cord" cx="350" cy="200" rx="22" ry="26" fill="url(#spinalG)" stroke="#d070a0" stroke-width="1.5"/>
+          <!-- 灰质蝴蝶形 -->
+          <path d="M350,182 C344,185 336,192 336,200 C336,208 344,215 350,218 C356,215 364,208 364,200 C364,192 356,185 350,182Z"
+            fill="#f0c0d8" stroke="#d080b0" stroke-width="1" opacity=".7"/>
+          <!-- 前角运动神经元 -->
+          <circle cx="342" cy="207" r="4" fill="#ff8080" stroke="#cc4040" stroke-width="1"/>
+          <circle cx="358" cy="207" r="4" fill="#ff8080" stroke="#cc4040" stroke-width="1"/>
+          <!-- 后角感觉神经元 -->
+          <circle cx="344" cy="193" r="3" fill="#80ccff" stroke="#4088cc" stroke-width="1"/>
+          <circle cx="356" cy="193" r="3" fill="#80ccff" stroke="#4088cc" stroke-width="1"/>
+          <!-- 中间神经元（突触） -->
+          <circle id="center-node" cx="350" cy="200" r="5" fill="#ffe0f0" stroke="#ff70b0" stroke-width="1.5" filter="url(#softglow)"/>
+          <!-- 突触连接线 -->
+          <line x1="344" y1="193" x2="350" y2="200" stroke="#80ccff" stroke-width="1" opacity=".6"/>
+          <line x1="356" y1="193" x2="350" y2="200" stroke="#80ccff" stroke-width="1" opacity=".6"/>
+          <line x1="350" y1="200" x2="342" y2="207" stroke="#ff8080" stroke-width="1" opacity=".6"/>
+          <line x1="350" y1="200" x2="358" y2="207" stroke="#ff8080" stroke-width="1" opacity=".6"/>
+          <!-- 脊髓标注 -->
+          <text x="350" y="152" text-anchor="middle" fill="#f0d0e8" font-size="12" font-family="Noto Sans SC" font-weight="bold">③ 神经中枢</text>
+          <text x="350" y="166" text-anchor="middle" fill="#f0d0e8" font-size="9" font-family="Noto Sans SC" opacity=".7">脊髓横截面</text>
+          <!-- 椎骨棘突 -->
+          <rect x="344" y="148" width="12" height="22" rx="3" fill="#c8b870" stroke="#a09050" stroke-width="1"/>
+          <text x="390" y="197" fill="#d4c888" font-size="9" font-family="Noto Sans SC">椎骨</text>
+          <text x="390" y="208" fill="#f0c0d8" font-size="9" font-family="Noto Sans SC">脊髓</text>
+          <text x="390" y="219" fill="#ff8080" font-size="9" font-family="Noto Sans SC">前角</text>
+          <text x="390" y="230" fill="#80ccff" font-size="9" font-family="Noto Sans SC">后角</text>
+          <line x1="388" y1="195" x2="378" y2="197" stroke="#d4c888" stroke-width=".7"/>
+          <line x1="388" y1="206" x2="372" y2="201" stroke="#f0c0d8" stroke-width=".7"/>
+          <line x1="388" y1="217" x2="378" y2="208" stroke="#ff8080" stroke-width=".7"/>
+          <line x1="388" y1="228" x2="378" y2="193" stroke="#80ccff" stroke-width=".7"/>
+
+          <!-- ══ 区域四：传出神经（运动神经） ══ -->
+          <path id="efferent-nerve" d="M428,238 C455,252 488,268 515,282 C535,292 550,300 562,308"
+            stroke="#f0924a" stroke-width="5" fill="none" stroke-linecap="round" opacity=".45" marker-end="url(#arr-eff)"/>
+          <path d="M430,236 C457,250 490,266 517,280 C537,290 552,298 564,306"
+            stroke="#ffc090" stroke-width="1.5" fill="none" stroke-linecap="round" opacity=".3" stroke-dasharray="8,4"/>
+          <!-- 郎飞结 -->
+          <circle cx="462" cy="254" r="3" fill="#ffcc88" opacity=".5"/>
+          <circle cx="496" cy="270" r="3" fill="#ffcc88" opacity=".5"/>
+          <circle cx="530" cy="285" r="3" fill="#ffcc88" opacity=".5"/>
+          <text x="510" y="340" text-anchor="middle" fill="#f0924a" font-size="11" font-family="Noto Sans SC">④ 传出神经</text>
+          <text x="510" y="353" text-anchor="middle" fill="#f0924a" font-size="9" font-family="Noto Sans SC" opacity=".6">坐骨神经运动支</text>
+          <text x="500" y="268" text-anchor="middle" fill="#f0924a" font-size="8" font-family="Noto Sans SC" opacity=".5">→ 离心传导</text>
+
+          <!-- ══ 区域五：效应器（腓肠肌） ══ -->
+          <!-- 肌腹 -->
+          <ellipse cx="635" cy="280" rx="52" ry="72" fill="url(#muscG)" stroke="#601808" stroke-width="1.5"/>
+          <!-- 肌肉纹理 -->
+          <path d="M600,240 C596,258 594,278 596,300 C598,318 604,330 610,338" stroke="#c04838" stroke-width="1" fill="none" opacity=".5"/>
+          <path d="M618,232 C614,252 612,274 614,298 C616,318 622,332 628,342" stroke="#c04838" stroke-width="1" fill="none" opacity=".5"/>
+          <path d="M638,230 C634,250 632,272 634,296 C636,316 642,330 648,340" stroke="#c04838" stroke-width="1" fill="none" opacity=".5"/>
+          <path d="M656,236 C652,256 651,278 653,300 C655,318 660,330 665,338" stroke="#c04838" stroke-width="1" fill="none" opacity=".5"/>
+          <!-- 运动终板 -->
+          <circle cx="600" cy="265" r="5" fill="#ffee44" stroke="#cc8800" stroke-width="1.2" filter="url(#softglow)"/>
+          <path d="M575,308 L600,265" stroke="#f0924a" stroke-width="1.5" stroke-dasharray="3,2" opacity=".7"/>
+          <text x="558" y="312" fill="#ffee44" font-size="8" font-family="Noto Sans SC">运动终板</text>
+          <!-- 肌腱 -->
+          <path d="M600,348 C614,362 628,370 635,372 C642,370 656,362 670,348"
+            fill="#e0d0a0" stroke="#b0a060" stroke-width="1.2"/>
+          <path d="M635,372 L635,400" stroke="#d0c090" stroke-width="8" stroke-linecap="round"/>
+          <text x="635" y="420" text-anchor="middle" fill="#d0c090" font-size="9" font-family="Noto Sans SC">肌腱</text>
+          <!-- 效应器标注 -->
+          <text x="635" y="225" text-anchor="middle" fill="#f0924a" font-size="12" font-family="Noto Sans SC" font-weight="bold">⑤ 效应器</text>
+          <text x="635" y="239" text-anchor="middle" fill="#f0924a" font-size="9" font-family="Noto Sans SC" opacity=".7">腓肠肌</text>
+          <!-- 效应器节点 -->
+          <circle id="effector-node" cx="635" cy="280" r="16" fill="rgba(240,146,74,.1)" stroke="#f0924a" stroke-width="2" filter="url(#glow2)" opacity=".5"/>
+
+          <!-- ══ 腿部收缩动画元素 ══ -->
+          <g id="left-leg" transform="translate(0,0)">
+            <ellipse cx="95" cy="445" rx="18" ry="12" fill="#3a6a38" stroke="#2a4a28" stroke-width="1"/>
+          </g>
+          <g id="right-leg" transform="translate(0,0)">
+            <ellipse cx="635" cy="435" rx="18" ry="12" fill="#3a6a38" stroke="#2a4a28" stroke-width="1"/>
+          </g>
+
+          <!-- ══ 节点示意条（底部） ══ -->
+          <g transform="translate(60,462)">
+            <rect x="-8" y="-12" width="656" height="30" rx="6" fill="rgba(0,201,167,.04)" stroke="rgba(0,201,167,.1)" stroke-width=".5"/>
+            <!-- 节点 -->
+            <circle id="dn0" cx="0" cy="0" r="8" fill="rgba(0,255,136,.1)" stroke="#00ff88" stroke-width="1.5"/>
+            <line x1="9" y1="0" x2="151" y2="0" stroke="#00c9a7" stroke-width="1.2" opacity=".35" marker-end="url(#arr)"/>
+            <circle id="dn1" cx="160" cy="0" r="8" fill="rgba(0,201,167,.1)" stroke="#00c9a7" stroke-width="1.5"/>
+            <line x1="169" y1="0" x2="311" y2="0" stroke="#f0d0e8" stroke-width="1.2" opacity=".35" marker-end="url(#arr)"/>
+            <circle id="dn2" cx="320" cy="0" r="8" fill="rgba(240,208,232,.1)" stroke="#f0d0e8" stroke-width="1.5"/>
+            <line x1="329" y1="0" x2="471" y2="0" stroke="#f0924a" stroke-width="1.2" opacity=".35" marker-end="url(#arr-eff)"/>
+            <circle id="dn3" cx="480" cy="0" r="8" fill="rgba(240,146,74,.1)" stroke="#f0924a" stroke-width="1.5"/>
+            <line x1="489" y1="0" x2="631" y2="0" stroke="#f0924a" stroke-width="1.2" opacity=".35" marker-end="url(#arr-eff)"/>
+            <circle id="dn4" cx="640" cy="0" r="8" fill="rgba(240,146,74,.1)" stroke="#f0924a" stroke-width="1.5"/>
+            <!-- 文字 -->
+            <text x="0" y="18" text-anchor="middle" fill="#00ff88" font-size="8" font-family="Noto Sans SC">感受器</text>
+            <text x="160" y="18" text-anchor="middle" fill="#00c9a7" font-size="8" font-family="Noto Sans SC">传入神经</text>
+            <text x="320" y="18" text-anchor="middle" fill="#f0d0e8" font-size="8" font-family="Noto Sans SC">神经中枢</text>
+            <text x="480" y="18" text-anchor="middle" fill="#f0924a" font-size="8" font-family="Noto Sans SC">传出神经</text>
+            <text x="640" y="18" text-anchor="middle" fill="#f0924a" font-size="8" font-family="Noto Sans SC">效应器</text>
+          </g>
+
+          <!-- 酸液刺激动画 -->
+          <circle id="acid-drop" cx="95" cy="345" r="6" fill="#e8ff00" opacity="0" filter="url(#softglow)"/>
+          <text id="acid-txt" x="42" y="338" fill="#e8ff00" font-size="9" font-family="Noto Sans SC" opacity="0">0.5% HCl</text>
+        </svg>
+      </div>
+      <div class="anat-ctrl">
+        <div class="ctrl-scroll">
+          <div class="csec">
+            <div class="csec-ttl">传导状态</div>
+            <div id="reflex-stage-txt" class="stage-txt">点击"足部刺激"开始反射弧传导演示</div>
+            <div id="reflex-pill" class="pill">反射弧完整</div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">刺激控制</div>
+            <div class="crow">
+              <button class="btn" onclick="stimFoot()">👣 足部刺激</button>
+              <button class="btn" onclick="stimEfferent()">⚡ 直接刺激传出神经</button>
+            </div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">环节损伤</div>
+            <div class="tog-row"><span class="tog-lbl">脊髓横断</span><div class="tog" id="tog-spinal" onclick="togSpinal(this)"></div></div>
+            <div class="tog-row"><span class="tog-lbl">破坏感受器</span><div class="tog" id="tog-recep" onclick="togRecep(this)"></div></div>
+          </div>
+          <div class="csec">
+            <div class="csec-ttl">实验说明</div>
+            <div id="reflex-explain" style="font-size:11.5px;color:var(--text2);line-height:1.9;background:rgba(0,201,167,.04);border:1px solid var(--border2);border-radius:8px;padding:12px">
+              💡 反射弧五环节必须完整才能完成反射：<br>
+              <b style="color:var(--red)">横断脊髓</b>→传导至中枢中止<br>
+              <b style="color:var(--orange)">破坏感受器</b>→无信号产生<br>
+              <b style="color:var(--jade)">直接刺激传出神经</b>→效应器仍收缩（非反射）
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+/* ── 配置 ── */
+const CFG={
+  AI_KEY:'sk-f4998e69a1db439aa32d0af1f4029fd4',
+  AI_URL:'https://api.deepseek.com/chat/completions',
+  M_LAB:'https://frog.oss-cn-shanghai.aliyuncs.com/science_lab_lowpoly.glb',
+  M_FROG:'https://frog.oss-cn-shanghai.aliyuncs.com/cc0____black-spotted_pond_frog.glb',
+  M_HEART:'https://frog.oss-cn-shanghai.aliyuncs.com/Meshy_AI_Anatomical_Heart_Mode_0509051116_texture.glb',
+  V_HEART:'https://frog.oss-cn-shanghai.aliyuncs.com/29557264358-1-192.mp4',
+  V_MUSCLE:'https://frog.oss-cn-shanghai.aliyuncs.com/1294819905-1-192.mp4',
+  V_REFLEX:'https://frog.oss-cn-shanghai.aliyuncs.com/227283282-1-160.mp4',
+  DEFAULT_BPM:72, DRUG_DUR:10000, TETANUS_HZ:15,
+};
+
+/* ── 状态 ── */
+const S={
+  bpmBase:72,bpmMul:1,ampMul:1,glowR:.9,glowG:.05,glowB:.05,
+  perfOn:false,arrest:false,drugTimer:null,
+  muscleFreq:10,muscleInt:.6,contStim:false,contTimer:null,legScaleY:1,
+  spinalCut:false,receptorDead:false,reflexStage:-1,
+};
+
+/* ══════════════════════
+   开场粒子
+══════════════════════ */
+(function(){
+  const c=document.getElementById('intro-canvas'),ctx=c.getContext('2d');
+  const rsz=()=>{c.width=innerWidth;c.height=innerHeight};rsz();window.addEventListener('resize',rsz);
+  const pts=Array.from({length:100},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.2+.4,a:Math.random()*.35+.1}));
+  function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=c.width;if(p.x>c.width)p.x=0;if(p.y<0)p.y=c.height;if(p.y>c.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(0,201,167,${p.a})`;ctx.fill();});
+    for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);if(d<80){ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.strokeStyle=`rgba(0,201,167,${.07*(1-d/80)})`;ctx.lineWidth=.5;ctx.stroke();}}
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+
+
+/* 逐行淡入 */
+const LINES=[
+  {t:'过去，机能学的第一课从一只青蛙开始。',gap:false},
+  {t:'今天，我们从一行代码出发。',gap:false},
+  {t:'',gap:false},
+  {t:'我们用数字孪生重建每一次心跳，',gap:true},
+  {t:'用人工智能还原每一条神经通路。',gap:false},
+  {t:'',gap:false},
+  {t:'不是回避实验，而是选择另一种尊重——',gap:true},
+  {t:'让学生在虚拟中反复探索，',gap:false},
+  {t:'在真实世界里一次做对。',gap:false},
+  {t:'',gap:false},
+  {t:'用模拟替代试错，',gap:true},
+  {t:'用算法替代牺牲，',gap:false},
+  {t:'用数字生命守护真实生命。',gap:false},
+  {t:'',gap:false},
+  {t:'——这，就是替代原则的意义。',gap:true},
+];
+(function showLines(){
+  const container=document.getElementById('intro-lines');
+  if(!container)return;
+  let delay=1.0;
+  LINES.forEach(line=>{
+    if(!line.t){delay+=0.3;return;}
+    const el=document.createElement('span');
+    el.className='intro-line'+(line.gap?' gap':'');
+    el.textContent=line.t;
+    el.style.animationDelay=delay+'s';
+    container.appendChild(el);
+    delay+=1.2;
+  });
+  setTimeout(()=>{
+    const btn=document.getElementById('btn-enter');
+    if(btn)btn.style.display='inline-block';
+  },(delay+0.2)*1000);
+})();
+
+window.enterLab=function(){
+  document.getElementById('pg-intro').classList.remove('active');
+  setTimeout(()=>{
+    document.getElementById('pg-main').classList.add('active');
+    initMainScene();
+    initHeartScene();
+    startECG();
+    startTension();
+  },500);
+};
+
+/* ══════════════════════
+   主场景 Three.js
+   青蛙放在实验台侧边，不被遮挡
+══════════════════════ */
+let mR,mS,mCam,mCtrl,mComp,mFrog;
+function initMainScene(){
+  const canvas=document.getElementById('three-main');
+  mR=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+  mR.setPixelRatio(Math.min(devicePixelRatio,2));
+  mR.setSize(innerWidth,innerHeight);
+  mR.toneMapping=THREE.ACESFilmicToneMapping;
+  mR.toneMappingExposure=1.2;
+  mS=new THREE.Scene();
+  mS.background=new THREE.Color(0x060d1a);
+  mS.fog=new THREE.FogExp2(0x060d1a,.03);
+  mCam=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.01,200);
+  mCam.position.set(2,2.5,8);
+  mCtrl=new OrbitControls(mCam,canvas);
+  mCtrl.enableDamping=true;mCtrl.dampingFactor=.06;
+  mCtrl.autoRotate=true;mCtrl.autoRotateSpeed=.25;
+  mCtrl.target.set(0,0,0);
+  mCtrl.maxDistance=18;mCtrl.minDistance=1;
+  mS.add(new THREE.AmbientLight(0x223355,3));
+  const d=new THREE.DirectionalLight(0xfff5e0,4);d.position.set(2,8,4);mS.add(d);
+  const p=new THREE.PointLight(0x00c9a7,2,25);p.position.set(-4,2,3);mS.add(p);
+  const grid=new THREE.GridHelper(50,70,0x00c9a7,0x0d1929);grid.position.y=-2.8;mS.add(grid);
+  mComp=new EffectComposer(mR);
+  mComp.addPass(new RenderPass(mS,mCam));
+  mComp.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.55,.5,.85));
+  const loader=new GLTFLoader();
+  loader.load(CFG.M_LAB,g=>{g.scene.scale.setScalar(.5);g.scene.position.set(0,-2.8,0);mS.add(g.scene);},null,()=>{mS.add(buildLab());});
+  // 青蛙放在实验台右侧，偏离中心，不被实验室遮挡
+  loader.load(CFG.M_FROG,g=>{
+    mFrog=g.scene;
+    mFrog.scale.setScalar(16);
+    mFrog.position.set(0,-2.0,3); // 实验台正前方，最前面
+    mFrog.rotation.y=0;
+    mS.add(mFrog);
+  },null,()=>{
+    mFrog=buildFrog();mFrog.scale.setScalar(16);mFrog.position.set(0,-2.0,3);mS.add(mFrog);
+  });
+  window.addEventListener('resize',()=>{mCam.aspect=innerWidth/innerHeight;mCam.updateProjectionMatrix();mR.setSize(innerWidth,innerHeight);mComp.setSize(innerWidth,innerHeight);});
+  (function a(){requestAnimationFrame(a);mCtrl.update();mComp.render();})();
+}
+
+// 穿刺点标注已移除
+
+function buildLab(){const g=new THREE.Group();const m=new THREE.MeshBasicMaterial({color:0x0d1929,wireframe:true});const t=new THREE.Mesh(new THREE.BoxGeometry(10,.15,5),m);t.position.y=-2.8;g.add(t);return g;}
+function buildFrog(){const g=new THREE.Group();const m=new THREE.MeshPhongMaterial({color:0x2d8a4e});const b=new THREE.Mesh(new THREE.SphereGeometry(.5,12,8),m);g.add(b);return g;}
+
+/* ══════════════════════
+   心脏场景
+══════════════════════ */
+let hR,hS,hCam,hCtrl,hComp,heartModel,perfPts;
+const clockH=new THREE.Clock();
+
+function initHeartScene(){
+  const canvas=document.getElementById('heart-canvas');
+  hR=new THREE.WebGLRenderer({canvas,antialias:true});
+  hR.setPixelRatio(Math.min(devicePixelRatio,2));
+  hR.toneMapping=THREE.ACESFilmicToneMapping;
+  hR.toneMappingExposure=2.5; // 大幅提亮
+  hS=new THREE.Scene();hS.background=new THREE.Color(0x06101e);
+  hCam=new THREE.PerspectiveCamera(38,1,.01,50);hCam.position.set(0,.5,4);
+  hCtrl=new OrbitControls(hCam,canvas);hCtrl.enableDamping=true;hCtrl.dampingFactor=.07;hCtrl.maxDistance=8;hCtrl.minDistance=.3;
+  // 超强照明
+  hS.add(new THREE.AmbientLight(0xffffff,8));
+  const tL=new THREE.PointLight(0xffffff,12,20);tL.position.set(0,5,3);hS.add(tL);
+  const fL=new THREE.PointLight(0xfff5f5,10,15);fL.position.set(0,1,5);hS.add(fL);
+  const lL=new THREE.PointLight(0xff8888,6,12);lL.position.set(-3,0,2);hS.add(lL);
+  const rL=new THREE.PointLight(0x88aaff,5,12);rL.position.set(3,0,2);hS.add(rL);
+  hComp=new EffectComposer(hR);hComp.addPass(new RenderPass(hS,hCam));
+  hComp.addPass(new UnrealBloomPass(new THREE.Vector2(400,400),.7,.4,.75));
+  // 加载心脏
+  const loader=new GLTFLoader();
+  loader.load(CFG.M_HEART,g=>{
+    heartModel=g.scene;heartModel.scale.setScalar(1.4);heartModel.position.set(0,-0.2,0);hS.add(heartModel);
+    // 全部材质提亮
+    heartModel.traverse(c=>{if(c.isMesh&&c.material){c.material.needsUpdate=true;}});
+    // 插管
+    const tube=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,.9,16),new THREE.MeshPhongMaterial({color:0x44ddcc,transparent:true,opacity:.4,shininess:200}));
+    tube.position.set(0,1.1,0);hS.add(tube);
+    // 连接线
+    const pts2=[new THREE.Vector3(0,1.55,0),new THREE.Vector3(0,2.2,.5),new THREE.Vector3(.3,2.8,.8)];
+    const lineGeo=new THREE.BufferGeometry().setFromPoints(pts2);
+    hS.add(new THREE.Line(lineGeo,new THREE.LineBasicMaterial({color:0x44aacc})));
+  },null,()=>{heartModel=buildHeart();hS.add(heartModel);});
+  buildPerfusion();
+  resizeHeart();
+  window.addEventListener('resize',resizeHeart);
+  (function a(){requestAnimationFrame(a);const t=clockH.getElapsedTime();hCtrl.update();animHeart(t);animPerf();hComp.render();})();
+}
+
+function resizeHeart(){const vp=document.getElementById('heart-vp');if(!vp||!hR)return;const w=vp.clientWidth,h=vp.clientHeight;hCam.aspect=w/h;hCam.updateProjectionMatrix();hR.setSize(w,h);hComp.setSize(w,h);}
+function buildHeart(){const g=new THREE.Group();const m=new THREE.MeshPhongMaterial({color:0xcc2222,emissive:0x440000,shininess:80});g.add(new THREE.Mesh(new THREE.SphereGeometry(.5,16,12),m));return g;}
+function buildPerfusion(){const cnt=200,pos=new Float32Array(cnt*3);for(let i=0;i<cnt;i++){pos[i*3]=(Math.random()-.5)*.18;pos[i*3+1]=Math.random()*1.6+.5;pos[i*3+2]=(Math.random()-.5)*.18;}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));perfPts=new THREE.Points(geo,new THREE.PointsMaterial({color:0x00ff88,size:.025,transparent:true,opacity:0}));hS.add(perfPts);}
+function animPerf(){if(!perfPts||!S.perfOn)return;const p=perfPts.geometry.attributes.position;for(let i=0;i<p.count;i++){p.array[i*3+1]-=.022;if(p.array[i*3+1]<-.6)p.array[i*3+1]=2.0;}p.needsUpdate=true;}
+
+/* 心脏搏动 */
+function animHeart(t){
+  if(!heartModel)return;
+  const bpm=S.bpmBase*S.bpmMul,period=60/bpm,phase=(t%period)/period;
+  let sc=1;
+  if(S.arrest)sc=.99;
+  else if(phase<.15)sc=1+.09*S.ampMul*Math.sin(phase/.15*Math.PI);
+  else if(phase<.5){const p=(phase-.15)/.35;sc=1+.25*S.ampMul*Math.sin(p*Math.PI);}
+  heartModel.scale.setScalar(sc*1.4);
+  heartModel.traverse(c=>{if(c.isMesh&&c.material&&c.material.emissive){
+    c.material.emissive.setRGB(S.glowR*(sc-.9)*5,S.glowG*(sc-.9)*2,S.glowB*(sc-.9)*2);
+    c.material.emissiveIntensity=Math.max(0,(sc-1)*5);
+  }});
+  document.getElementById('d-bpm').textContent=Math.round(bpm);
+  document.getElementById('bpm-sv').textContent=Math.round(bpm);
+  const ap=Math.round(S.ampMul*80);
+  document.getElementById('d-amp').textContent=ap+'%';
+  document.getElementById('amp-fill').style.width=ap+'%';
+}
+
+/* ── 药物模型（含高K⁺、高Na⁺） ── */
+const DRUGS={
+  ach:{rM:.6,aM:.7,gr:.2,gg:.1,gb:.9,arrest:true,
+    label:'乙酰胆碱 (ACh)',pill:'↓心率 ↓收缩 可停搏',
+    explain:'<b>乙酰胆碱</b>激动心肌<b>M受体</b>，抑制窦房结自律性，产生<b>负性频率</b>（心率减慢40%）和<b>负性肌力</b>（收缩力减弱30%）效应。高浓度可引起一过性<b>心脏停搏</b>（1-2秒）。机制：M受体→Gi蛋白→↓cAMP→↓If电流→心率减慢。'},
+  epi:{rM:1.3,aM:1.4,gr:1,gg:.25,gb:0,arrest:false,
+    label:'肾上腺素 (Epi)',pill:'↑心率 ↑收缩 辉光橙',
+    explain:'<b>肾上腺素</b>激动心肌<b>β₁受体</b>，产生<b>正性频率</b>（心率加快30%）和<b>正性肌力</b>（收缩力增强40%）效应，同时加快房室传导。机制：β₁→Gs蛋白→↑cAMP→PKA磷酸化→↑Ca²⁺内流→收缩增强。'},
+  highca:{rM:1,aM:1.5,gr:.9,gg:.8,gb:.2,arrest:false,
+    label:'高钙任氏液',pill:'↑收缩幅度 基线偏移',
+    explain:'<b>高Ca²⁺任氏液</b>使细胞外Ca²⁺浓度升高，兴奋时Ca²⁺内流增多，<b>兴奋-收缩耦联</b>增强，心肌收缩幅度明显增大（+50%）。舒张期基线偏移表示心室舒张不完全。'},
+  lowca:{rM:.9,aM:.5,gr:.2,gg:.5,gb:1,arrest:false,
+    label:'低钙任氏液',pill:'↓收缩幅度 ↓心率',
+    explain:'<b>低Ca²⁺任氏液</b>使细胞外Ca²⁺减少，兴奋-收缩耦联减弱，心肌收缩幅度显著降低（-50%），心率也轻微减慢（-10%）。严重时可出现收缩无力。'},
+  kcl:{rM:.7,aM:.4,gr:.5,gg:.1,gb:.9,arrest:true,
+    label:'高钾(KCl)',pill:'↓心率 ↓幅度 心律失常',
+    explain:'<b>高K⁺</b>使静息膜电位绝对值减小（去极化），Na⁺通道部分失活，动作电位幅度降低。结果：心率减慢、收缩减弱，严重高K⁺可引起<b>心室颤动或停搏</b>。临床意义：高钾血症的心脏毒性。'},
+  nacl:{rM:.5,aM:.3,gr:.8,gg:.8,gb:.3,arrest:true,
+    label:'高钠(NaCl)',pill:'心率先快后停',
+    explain:'<b>高Na⁺</b>（高渗NaCl）初期使静息电位绝对值增大，兴奋性短暂升高，心率可能短暂加快；但随后心肌细胞脱水、内环境渗透压失衡，心肌功能受损，最终可导致<b>心跳停止</b>。'},
+};
+
+window.applyDrug=function(key){
+  const d=DRUGS[key];if(!d)return;
+  S.bpmMul=d.rM;S.ampMul=d.aM;S.glowR=d.gr;S.glowG=d.gg;S.glowB=d.gb;
+  if(d.arrest&&Math.random()<.45){S.arrest=true;setTimeout(()=>S.arrest=false,1800);}
+  document.getElementById('drug-status-pill').textContent=d.label+' · '+d.pill;
+  document.getElementById('drug-status-pill').style.display='inline-block';
+  document.getElementById('ecg-lbl').textContent=d.label;
+  document.getElementById('drug-explain').innerHTML='💊 '+d.explain;
+  if(S.drugTimer)clearTimeout(S.drugTimer);
+  S.drugTimer=setTimeout(()=>washHeart(),CFG.DRUG_DUR);
+};
+window.washHeart=function(){
+  S.bpmMul=1;S.ampMul=1;S.glowR=.9;S.glowG=.05;S.glowB=.05;S.arrest=false;
+  document.getElementById('drug-status-pill').textContent='已冲洗，恢复正常';
+  document.getElementById('ecg-lbl').textContent='正常窦性心律';
+  document.getElementById('drug-explain').innerHTML='💡 药物已冲洗，心脏恢复正常灌流状态。';
+};
+window.togPerf=function(){S.perfOn=!S.perfOn;const btn=document.getElementById('btn-perf');btn.textContent=S.perfOn?'■ 停止灌流':'▶ 开始灌流';btn.classList.toggle('on',S.perfOn);if(perfPts)perfPts.material.opacity=S.perfOn?.85:0;};
+window.setBaseBPM=function(v){S.bpmBase=parseInt(v);document.getElementById('bpm-sv').textContent=v;};
+
+/* ECG合成 */
+function ecgSample(p,amp){
+  let v=0;
+  if(p>.10&&p<.22)v+=.15*Math.sin((p-.10)/.12*Math.PI);
+  if(p>.28&&p<.32)v-=.12*Math.sin((p-.28)/.04*Math.PI);
+  if(p>.28&&p<.44)v+=1.0*Math.exp(-Math.pow((p-.34)/.025,2));
+  if(p>.36&&p<.44)v-=.18*Math.sin((p-.36)/.08*Math.PI);
+  if(p>.50&&p<.75)v+=.30*Math.sin((p-.50)/.25*Math.PI);
+  return v*amp;
+}
+let ecgPh=0;const ecgBuf=new Array(320).fill(0);
+function startECG(){
+  const c=document.getElementById('ecg-c'),ctx=c.getContext('2d');
+  function loop(){
+    ecgPh+=(1/60)*((S.bpmBase*S.bpmMul)/60);if(ecgPh>1)ecgPh-=1;
+    const s=S.arrest?0:ecgSample(ecgPh,S.ampMul);
+    ecgBuf.shift();ecgBuf.push(s);
+    const w=c.width=c.offsetWidth||320,h=70;c.height=h;
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle='rgba(0,201,167,.07)';ctx.lineWidth=.5;
+    for(let x=0;x<w;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+    for(let y=0;y<h;y+=18){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+    ctx.strokeStyle='#00c9a7';ctx.lineWidth=1.5;ctx.shadowBlur=5;ctx.shadowColor='#00c9a7';
+    ctx.beginPath();ecgBuf.forEach((v,i)=>{const x=(i/ecgBuf.length)*w,y=h/2-v*(h*.33);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    ctx.stroke();ctx.shadowBlur=0;
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+/* ══════════════════════
+   骨骼肌 SVG动画
+══════════════════════ */
+const tensBuf=new Array(320).fill(0);
+function startTension(){
+  const c=document.getElementById('tens-c'),ctx=c.getContext('2d');
+  function loop(){
+    const t=performance.now()/1000,f=S.muscleFreq;
+    let val=0;
+    if(S.contStim){
+      if(f>=CFG.TETANUS_HZ)val=.92*S.muscleInt;
+      else if(f>=8)val=.62*S.muscleInt+.14*Math.sin(2*Math.PI*f*t);
+      else val=.48*S.muscleInt*Math.abs(Math.sin(2*Math.PI*(f/2)*t));
+    }else if(S.legScaleY<.97)val=(1-S.legScaleY)*1.6;
+    tensBuf.shift();tensBuf.push(val);
+    const w=c.width=c.offsetWidth||320,h=70;c.height=h;
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle='rgba(240,146,74,.07)';ctx.lineWidth=.5;
+    for(let x=0;x<w;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+    for(let y=0;y<h;y+=18){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+    ctx.strokeStyle='#f0924a';ctx.lineWidth=1.5;ctx.shadowBlur=4;ctx.shadowColor='#f0924a';
+    ctx.beginPath();tensBuf.forEach((v,i)=>{const x=(i/tensBuf.length)*w,y=h-4-v*(h-8);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    ctx.stroke();ctx.shadowBlur=0;
+    // 肌肉SVG动画
+    animMuscleSVG(f,val);
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function animMuscleSVG(freq,tension){
+  const med=document.getElementById('gastro-med');
+  const lat=document.getElementById('gastro-lat');
+  if(!med||!lat)return;
+  const contract=tension>.05;
+  const bulge=tension*.3;
+  if(contract){
+    // 收缩时肌肉变短变宽（贝塞尔曲线控制点变化）
+    med.setAttribute('d',`M330,225 C${310-bulge*20},240 ${295-bulge*15},280 ${298-bulge*8},340 C300,380 318,400 340,410 L350,415 L350,230 Z`);
+    lat.setAttribute('d',`M370,225 C${390+bulge*20},240 ${405+bulge*15},280 ${402+bulge*8},340 C400,380 382,400 360,410 L350,415 L350,230 Z`);
+    // 刺激电极闪光
+    const flash=document.getElementById('stim-flash');
+    if(flash){flash.setAttribute('r','8');flash.setAttribute('opacity','.8');setTimeout(()=>{flash.setAttribute('r','0');flash.setAttribute('opacity','0');},100);}
+  }else{
+    med.setAttribute('d','M330,225 C310,240 295,280 298,340 C300,380 318,400 340,410 L350,415 L350,230 Z');
+    lat.setAttribute('d','M370,225 C390,240 405,280 402,340 C400,380 382,400 360,410 L350,415 L350,230 Z');
+  }
+  // 状态文字
+  const stateEl=document.getElementById('muscle-state-svg');
+  // 频率颜色
+  let stateText='',stateColor='#00c9a7';
+  if(S.contStim){
+    if(freq>=CFG.TETANUS_HZ){stateText='完全强直收缩';stateColor='#e05c5c';}
+    else if(freq>=8){stateText='不完全强直';stateColor='#f0924a';}
+    else{stateText='单收缩 (低频)';stateColor='#00c9a7';}
+  }else if(tension>.05){stateText='单收缩';stateColor='#00c9a7';}
+  else stateText='';
+  if(stateEl){stateEl.textContent=stateText;stateEl.setAttribute('fill',stateColor);}
+}
+
+window.singleStim=function(){
+  if(S.muscleInt<.3){document.getElementById('ms-pill').textContent='阈下刺激，无反应';document.getElementById('ms-pill').className='pill warn';return;}
+  S.legScaleY=.6;setTimeout(()=>{if(!S.contStim)S.legScaleY=1;},320);
+  showMsState('单收缩','');
+};
+window.togCont=function(){S.contStim=!S.contStim;const b=document.getElementById('btn-cont');b.classList.toggle('on',S.contStim);b.textContent=S.contStim?'■ 停止连续':'🔄 连续刺激';if(!S.contStim){S.legScaleY=1;showMsState('静息','');}else runCont();};
+window.stopMuscle=function(){S.contStim=false;if(S.contTimer)clearInterval(S.contTimer);S.legScaleY=1;document.getElementById('btn-cont').classList.remove('on');document.getElementById('btn-cont').textContent='🔄 连续刺激';showMsState('静息','');};
+function runCont(){if(S.contTimer)clearInterval(S.contTimer);S.contTimer=setInterval(()=>{if(!S.contStim){clearInterval(S.contTimer);return;}const f=S.muscleFreq;if(f>=CFG.TETANUS_HZ){S.legScaleY=.55;showMsState('完全强直收缩','danger');}else if(f>=8){S.legScaleY=.75;showMsState('不完全强直','warn');}else{S.legScaleY=.62;setTimeout(()=>{if(!S.contStim||S.muscleFreq>=8)return;S.legScaleY=1;},280);showMsState('单收缩','');}},1000/S.muscleFreq);}
+window.setFreq=function(v){S.muscleFreq=parseFloat(v);document.getElementById('freq-sv').textContent=v;if(S.contStim)runCont();};
+window.setInt=function(v){S.muscleInt=v/100;document.getElementById('int-sv').textContent=v;};
+function showMsState(t,type){document.getElementById('ms-lbl').textContent=t;const p=document.getElementById('ms-pill');p.textContent=t||'静息状态';p.className='pill'+(type?' '+type:'');}
+
+/* ══════════════════════
+   反射弧 SVG动画
+══════════════════════ */
+const RNAMES=['感受器','传入神经','脊髓中枢','传出神经','效应器'];
+const RCOLORS=['#00ff88','#00c9a7','#ffe0f0','#f0924a','#f0924a'];
+const RNODES=['dn0','dn1','dn2','dn3','dn4'];
+const RBIGNODES=['receptor-node',null,'center-node',null,'effector-node'];
+const RNERVES=['afferent-nerve',null,'efferent-nerve'];
+
+function setReflexStage(s){
+  S.reflexStage=s;
+  // 底部小节点高亮
+  RNODES.forEach((id,i)=>{
+    const el=document.getElementById(id);if(!el)return;
+    const active=i===s;
+    el.setAttribute('fill',active?RCOLORS[i].replace(')',',0.5)').replace('rgb','rgba'):`rgba(0,201,167,.1)`);
+    el.setAttribute('stroke',active?RCOLORS[i]:'rgba(0,201,167,.3)');
+    el.setAttribute('r',active?'9':'7');
+  });
+  // 大节点高亮
+  RBIGNODES.forEach((id,i)=>{if(!id)return;const el=document.getElementById(id);if(!el)return;el.setAttribute('opacity',i===s?'1':'.5');});
+  // 神经高亮
+  const afEl=document.getElementById('afferent-nerve');
+  const efEl=document.getElementById('efferent-nerve');
+  if(afEl)afEl.setAttribute('opacity',s===1?'1':'.35');
+  if(efEl)efEl.setAttribute('opacity',s===3?'1':'.35');
+}
+
+window.stimFoot=function(){
+  if(S.receptorDead){showReflexPill('感受器损毁，无信号','danger');return;}
+  let st=0;
+  function next(){
+    setReflexStage(st);
+    document.getElementById('reflex-stage-txt').textContent=RNAMES.slice(0,st+1).map((n,i)=>i===st?`▶ ${n}`:`✓ ${n}`).join(' → ');
+    // 酸液动画
+    if(st===0){const d=document.getElementById('acid-drop'),t=document.getElementById('acid-txt');if(d){d.setAttribute('opacity','1');setTimeout(()=>d.setAttribute('opacity','0'),600);}if(t){t.setAttribute('opacity','1');setTimeout(()=>t.setAttribute('opacity','0'),1200);}}
+    if(S.spinalCut&&st===2){setTimeout(()=>{setReflexStage(-1);document.getElementById('reflex-stage-txt').textContent='⚠ 脊髓横断，信号中止于中枢';showReflexPill('中枢切断，反射消失','danger');},300);return;}
+    if(st===4){triggerLegSVG();setTimeout(()=>setReflexStage(-1),500);return;}
+    st++;setTimeout(next,420);
+  }
+  next();
+};
+
+window.stimEfferent=function(){
+  setReflexStage(3);
+  document.getElementById('reflex-stage-txt').textContent='▶ 直接刺激传出神经 → 效应器收缩（绕过中枢，非真正反射）';
+  setTimeout(()=>{setReflexStage(4);triggerLegSVG();setTimeout(()=>setReflexStage(-1),500);},400);
+};
+
+function triggerLegSVG(){
+  const ll=document.getElementById('left-leg'),rl=document.getElementById('right-leg');
+  if(!ll||!rl)return;
+  let p=0;
+  const iv=setInterval(()=>{p+=16;if(p>350){clearInterval(iv);ll.setAttribute('transform','');rl.setAttribute('transform','');return;}
+    const r=Math.sin(p/350*Math.PI)*8;
+    ll.setAttribute('transform',`rotate(${r},310,260)`);
+    rl.setAttribute('transform',`rotate(${-r},390,260)`);
+  },16);
+}
+
+window.togSpinal=function(el){el.classList.toggle('on');S.spinalCut=el.classList.contains('on');
+  const sc=document.getElementById('spinal-cord');
+  if(sc)sc.setAttribute('fill',S.spinalCut?'#ff4444':'#ffe0f0');
+  showReflexPill(S.spinalCut?'脊髓已横断，中枢切断':'脊髓恢复正常',S.spinalCut?'danger':'');
+};
+window.togRecep=function(el){el.classList.toggle('on');S.receptorDead=el.classList.contains('on');
+  const rn=document.getElementById('receptor-node');
+  if(rn)rn.setAttribute('fill',S.receptorDead?'#888':'#00ff88');
+  showReflexPill(S.receptorDead?'感受器已破坏，无法接受刺激':'感受器恢复正常',S.receptorDead?'warn':'');
+};
+function showReflexPill(t,type){const p=document.getElementById('reflex-pill');p.textContent=t;p.className='pill'+(type?' '+type:'');}
+
+/* ══════════════════════
+   页面切换
+══════════════════════ */
+window.goResult=function(){document.getElementById('pg-main').classList.remove('active');document.getElementById('pg-result').classList.add('active');document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('active'));resizeHeart();};
+window.backMain=function(){document.getElementById('pg-result').classList.remove('active');document.getElementById('pg-main').classList.add('active');};
+window.swResExp=function(idx,btn){
+  document.querySelectorAll('.retab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  document.querySelectorAll('.rpane').forEach((p,i)=>p.classList.toggle('active',i===idx));
+  if(idx===0)setTimeout(resizeHeart,100);
+};
+window.openPanel=function(which,btn){
+  const pnl=document.getElementById('side-panel');
+  const isOpen=pnl.classList.contains('open');
+  ['pnl-preview','pnl-video'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  const target=document.getElementById('pnl-'+which);
+  const isSame=target&&target.style.display!=='none'&&isOpen;
+  if(isSame){pnl.classList.remove('open');document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('active'));return;}
+  if(target)target.style.display='block';
+  pnl.classList.add('open');
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  if(which==='video')initVSteps('heart');
+};
+window.swPrev=function(idx,el){document.querySelectorAll('.etab').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.econtent').forEach((c,i)=>c.classList.toggle('active',i===idx));};
+
+const VSRCS={heart:CFG.V_HEART,muscle:CFG.V_MUSCLE,reflex:CFG.V_REFLEX};
+const VSTEPS={
+  heart:['准备斯氏插管与任氏液','制备离体蛙心标本','主动脉插管固定','开始灌流记录基础值','依次给药并冲洗'],
+  muscle:['制备腓肠肌标本','连接张力换能器','确定阈强度','逐步升高刺激频率','记录各频率收缩波形'],
+  reflex:['制备脊蛙（去脑保脊髓）','盐酸刺激足部观察屈腿反射','破坏足部感受器','横断脊髓','直接电刺激坐骨神经'],
+};
+window.swVid=function(key,btn){document.querySelectorAll('.vtab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');const v=document.getElementById('main-vid');v.pause();v.src=VSRCS[key];v.load();initVSteps(key);};
+function initVSteps(key){document.getElementById('vsteps').innerHTML=(VSTEPS[key]||[]).map((s,i)=>`<div class="vstep"><span class="vsn">0${i+1}</span><span>${s}</span></div>`).join('');}
+
+/* ══════════════════════
+   AI 幽幽瓶
+══════════════════════ */
+const KB=[
+  {k:['乙酰胆碱','ACh','M受体'],a:'乙酰胆碱通过M受体→Gi蛋白→↓cAMP，抑制窦房结自律性，产生负性频率（减慢心率）和负性肌力效应，高浓度可引起一过性停搏。'},
+  {k:['肾上腺素','β受体','Epi'],a:'肾上腺素激动β₁受体→Gs→↑cAMP→PKA磷酸化→↑Ca²⁺内流，产生正性频率和正性肌力效应，是典型交感拟似药。'},
+  {k:['高钙','Ca²⁺','钙'],a:'高Ca²⁺任氏液使兴奋-收缩耦联增强，心肌收缩幅度增大。Ca²⁺是心肌兴奋收缩耦联的关键信使。'},
+  {k:['低钙'],a:'低Ca²⁺任氏液使兴奋-收缩耦联减弱，收缩幅度降低，严重时可出现心肌无力甚至停搏。'},
+  {k:['高钾','KCl','钾'],a:'高K⁺使静息膜电位去极化，Na⁺通道部分失活，动作电位幅度降低，心率减慢，严重可致心室颤动或停搏。'},
+  {k:['高钠','NaCl','钠'],a:'高渗NaCl初期可短暂兴奋心肌，但随后细胞脱水、内环境失衡，心肌功能受损，最终可致心停。'},
+  {k:['任氏液','Ringer'],a:'任氏液模拟蛙细胞外液，含NaCl、KCl、CaCl₂、NaHCO₃，用于维持离体心脏正常功能。'},
+  {k:['单收缩'],a:'单收缩是对一次阈上刺激的完整响应：潜伏期→收缩期→舒张期，总时程约100ms（骨骼肌）。'},
+  {k:['强直','完全强直','不完全强直'],a:'频率升高时收缩叠加：8-14Hz→不完全强直；≥15Hz→完全强直，张力持续在最大水平，是骨骼肌最有效做功方式。'},
+  {k:['全或无','动作电位'],a:'单根神经/肌纤维遵循"全或无"定律：阈下无反应，阈上产生固定幅度动作电位。神经干复合电位随刺激增大是募集纤维数量增多。'},
+  {k:['反射弧','五要素'],a:'反射弧五要素：感受器→传入神经→神经中枢→传出神经→效应器，任一环节损毁则反射消失。'},
+  {k:['脊髓','中枢'],a:'脊髓是本实验的神经中枢。横断后传入信号无法整合传出，反射消失，验证中枢的整合作用。'},
+  {k:['斯氏','插管'],a:'斯氏灌流法：将玻璃管插入左主动脉，任氏液从上方灌流维持心脏活动，可排除神经干扰，专观察体液因素。'},
+  {k:['兴奋收缩耦联'],a:'兴奋-收缩耦联：动作电位→L型Ca²⁺通道开放→肌质网释放Ca²⁺→与肌钙蛋白C结合→粗细肌丝滑动收缩。'},
+  {k:['ECG','心电图','P波','QRS','T波'],a:'P波=心房除极；QRS=心室除极（幅度最大）；T波=心室复极。各波形随给药而动态变化。'},
+];
+function kbM(q){const ql=q.toLowerCase();for(const it of KB)if(it.k.some(k=>ql.includes(k.toLowerCase())))return it.a;return null;}
+window.togAI=function(){const p=document.getElementById('ai-pnl'),c=document.getElementById('ai-chv');p.classList.toggle('open');c.textContent=p.classList.contains('open')?'▼':'▲';};
+window.sendAI=async function(){
+  const inp=document.getElementById('ai-inp');const q=inp.value.trim();if(!q)return;inp.value='';
+  addMsg(q,'user');
+  if(!CFG.AI_KEY||CFG.AI_KEY==='YOUR_DEEPSEEK_KEY_HERE'){addMsg(kbM(q)||'我擅长：乙酰胆碱、肾上腺素、高低钙/钾/钠效应、强直收缩、动作电位、反射弧……请问~🔵','bot');return;}
+  const el=addMsg('','bot');
+  try{
+    const res=await fetch(CFG.AI_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${CFG.AI_KEY}`},body:JSON.stringify({model:'deepseek-chat',messages:[{role:'system',content:'你是"幽幽瓶"，青蛙虚拟机能学实验室专属AI导师，精通蛙心灌流（含乙酰胆碱、肾上腺素、高低钙钾钠）、骨骼肌收缩、反射弧分析实验，用专业亲切的语气引导学生思考，回答简洁不超过150字。'},{role:'user',content:q}],stream:true})});
+    const reader=res.body.getReader(),dec=new TextDecoder();let txt='';
+    while(true){const{done,value}=await reader.read();if(done)break;for(const line of dec.decode(value).split('\n')){if(!line.startsWith('data:'))continue;const d=line.slice(5).trim();if(d==='[DONE]')break;try{txt+=(JSON.parse(d).choices?.[0]?.delta?.content||'');el.textContent=txt;el.parentElement.scrollTop=el.parentElement.scrollHeight;}catch(e){}}}
+  }catch(e){el.textContent=kbM(q)||'网络异常，请检查API Key。';}
+};
+function addMsg(text,role){const c=document.getElementById('chat-msgs');const el=document.createElement('div');el.className=`msg ${role}`;el.textContent=text;c.appendChild(el);c.scrollTop=c.scrollHeight;return el;}
+
+// 涟漪
+document.addEventListener('click',e=>{const b=e.target.closest('.btn,.ntab,.retab,.vtab,.etab');if(!b)return;const r=document.createElement('span');r.className='rpl';const rc=b.getBoundingClientRect();r.style.left=(e.clientX-rc.left)+'px';r.style.top=(e.clientY-rc.top)+'px';b.appendChild(r);r.addEventListener('animationend',()=>r.remove());});
+
+initVSteps('heart');
+</script>
+
+<!-- 背景音乐 -->
+<audio id="bg-music" preload="auto">
+  <source src="https://frog.oss-cn-shanghai.aliyuncs.com/sigmamusicart-emotional-piano-music-256262.mp3" type="audio/mp3">
+</audio>
+<button id="music-btn" onclick="toggleMusic()" title="背景音乐">🎵</button>
+
+<script>
+const audio = document.getElementById('bg-music');
+audio.volume = 0.5;
+let musicOn = false;
+
+// 开场页自动播放音乐
+function startIntroMusic(){
+  audio.currentTime = 0;
+  audio.play().then(()=>{
+    musicOn = true;
+    document.getElementById('music-btn').textContent='🔇';
+  }).catch(()=>{});
+}
+
+// 进入实验室时停止音乐
+const _origEnterLab = window.enterLab;
+window.enterLab = function(){
+  // 淡出音乐
+  const fadeOut = setInterval(()=>{
+    if(audio.volume > 0.05){ audio.volume -= 0.05; }
+    else{ audio.pause(); audio.volume=0.5; clearInterval(fadeOut); musicOn=false; document.getElementById('music-btn').textContent='🎵'; }
+  }, 80);
+  if(_origEnterLab) _origEnterLab();
+};
+
+// 开场页点击后启动音乐
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('pg-intro').addEventListener('click', function(){
+    if(!musicOn) startIntroMusic();
+  }, {once:true});
+  // 也在第一次用户交互时尝试播放
+  document.addEventListener('keydown', function(){
+    if(!musicOn) startIntroMusic();
+  }, {once:true});
+});
+
+// 自动尝试播放（部分浏览器允许）
+setTimeout(()=>{ if(!musicOn) startIntroMusic(); }, 800);
+
+window.toggleMusic = function(){
+  if(musicOn){ audio.pause(); musicOn=false; document.getElementById('music-btn').textContent='🎵'; }
+  else{ audio.play().then(()=>{ musicOn=true; document.getElementById('music-btn').textContent='🔇'; }).catch(()=>{}); }
+};
+</script>
+
+</body>
+</html>
